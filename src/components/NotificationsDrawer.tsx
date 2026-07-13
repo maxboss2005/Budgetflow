@@ -41,11 +41,11 @@ export default function NotificationsDrawer({
 
   const getBgStyle = (type: string) => {
     switch (type) {
-      case 'budget': return 'bg-red-500/10 border-red-500/20';
-      case 'bill': return 'bg-purple-500/10 border-purple-500/20';
-      case 'goal': return 'bg-emerald-500/10 border-emerald-500/20';
-      case 'sync': return 'bg-blue-500/10 border-blue-500/20';
-      default: return 'bg-slate-50 border-slate-100';
+      case 'budget': return 'bg-red-50/70 dark:bg-red-950/25 border-red-200/60 dark:border-red-900/40';
+      case 'bill': return 'bg-purple-50/70 dark:bg-purple-950/25 border-purple-200/60 dark:border-purple-900/40';
+      case 'goal': return 'bg-emerald-50/70 dark:bg-emerald-950/25 border-emerald-200/60 dark:border-emerald-900/40';
+      case 'sync': return 'bg-blue-50/70 dark:bg-blue-950/25 border-blue-200/60 dark:border-blue-900/40';
+      default: return 'bg-slate-50 dark:bg-slate-800/40 border-slate-200/60 dark:border-slate-800/60';
     }
   };
 
@@ -110,7 +110,7 @@ export default function NotificationsDrawer({
 
                 <div className="flex-1 min-w-0 space-y-1">
                   <div className="flex justify-between items-start gap-1">
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-100 leading-snug">{notif.message}</p>
+                    <p className={`text-xs font-bold leading-snug ${notif.isRead ? 'text-slate-500 dark:text-slate-400' : 'text-slate-900 dark:text-white'}`}>{notif.message}</p>
                     {!notif.isRead && (
                       <span className="w-2 h-2 rounded-full bg-blue-500 mt-1 animate-pulse flex-shrink-0"></span>
                     )}
