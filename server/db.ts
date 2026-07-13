@@ -111,6 +111,9 @@ export class Database {
       theme: 'dark',
       notificationsEnabled: true,
       createdAt: new Date().toISOString(),
+      points: 150,
+      level: 1,
+      achievements: ['Budget Pioneer'],
       passwordHash,
       salt,
     };
@@ -480,6 +483,12 @@ export class Database {
       console.log('Seeding database with premium demo account user@budgetflow.com (password123)...');
       demoUser = this.createUser(demoEmail, 'password123', 'John Doe');
       const userId = demoUser.id;
+      
+      this.updateUser(userId, {
+        points: 2450,
+        level: 3,
+        achievements: ['Budget Pioneer', 'Savings Hero', 'AI Mind explorer']
+      });
 
       // Seed categories (the defaults are already registered, let's add one custom)
       this.createCategory(userId, 'Gym & Fitness', 'expense', '#EC4899', 'Dumbbell');

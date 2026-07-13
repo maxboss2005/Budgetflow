@@ -7,8 +7,15 @@ import {
   Wallet,
   X,
   Sparkles,
-  HelpCircle
+  HelpCircle,
+  Trophy,
+  Zap,
+  Menu,
+  Sun,
+  Moon,
+  Bell
 } from 'lucide-react';
+import { AnimatePresence, motion } from 'motion/react';
 
 // Components
 import Sidebar from './components/Sidebar';
@@ -53,6 +60,23 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('budgetflow_sidebar_collapsed') === 'true');
+  const [pointsAlert, setPointsAlert] = useState<{ amount: number; reason: string; id: string; isLevelUp?: boolean; level?: number } | null>(null);
+
+  // --- Sidebar Collapse Side-effect ---
+  useEffect(() => {
+    localStorage.setItem('budgetflow_sidebar_collapsed', String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
+  // --- Points Alert Dismiss Side-effect ---
+  useEffect(() => {
+    if (pointsAlert) {
+      const timer = setTimeout(() => {
+        setPointsAlert(null);
+      }, 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [pointsAlert]);
 
   // Financial Datasets States
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -285,6 +309,9 @@ export default function App() {
         setSubscriptions(result.subscriptions);
         setCategories(result.categories);
 
+        // Award points for successful local ledger sync
+        awardPoints(75, 'Synchronized local transaction logs with cloud ledger');
+
         // Fetch notifications
         const notifRes = await fetch('/api/finance/notifications', {
           headers: { 'Authorization': `Bearer ${token}` }
@@ -359,6 +386,108 @@ export default function App() {
     }
   };
 
+  // --- GAMIFICATION / REWARDS SYSTEM ---
+  const awardPoints = async (amount: number, reason: string) => {
+    if (!user || !token) return;
+
+    const currentPoints = user.points ?? 150;
+    const currentLevel = user.level ?? 1;
+    const currentAchievements = user.achievements ?? ['Budget Pioneer'];
+
+    const newPoints = currentPoints + amount;
+    
+    let newLevel = currentLevel;
+    let nextLevelThreshold = newLevel * 1000;
+    let isLevelUp = false;
+
+    while (newPoints >= nextLevelThreshold) {
+      newLevel += 1;
+      nextLevelThreshold = newLevel * 1000;
+      isLevelUp = true;
+    }
+
+    const newAchievements = [...currentAchievements];
+    
+    if (reason.toLowerCase().includes('goal') || reason.toLowerCase().includes('savings') || reason.toLowerCase().includes('vault')) {
+      if (!newAchievements.includes('Savings Hero')) {
+        newAchievements.push('Savings Hero');
+      }
+    }
+    if (reason.toLowerCase().includes('funded') || reason.toLowerCase().includes('reached') || reason.toLowerCase().includes('completed')) {
+      if (!newAchievements.includes('Dream Achiever')) {
+        newAchievements.push('Dream Achiever');
+      }
+    }
+    if (reason.toLowerCase().includes('insight')) {
+      if (!newAchievements.includes('AI Mind explorer')) {
+        newAchievements.push('AI Mind explorer');
+      }
+    }
+    if (newLevel >= 2 && !newAchievements.includes('Bronze Budgeter')) {
+      newAchievements.push('Bronze Budgeter');
+    }
+    if (newLevel >= 3 && !newAchievements.includes('Silver Saver')) {
+      newAchievements.push('Silver Saver');
+    }
+    if (newLevel >= 5 && !newAchievements.includes('Gold Wealthmaster')) {
+      newAchievements.push('Gold Wealthmaster');
+    }
+
+    const updates = {
+      points: newPoints,
+      level: newLevel,
+      achievements: newAchievements
+    };
+
+    // Optimistically update
+    setUser(prev => prev ? { ...prev, ...updates } : null);
+
+    setPointsAlert({
+      amount,
+      reason,
+      id: Math.random().toString(36).substring(2, 9),
+      isLevelUp,
+      level: newLevel
+    });
+
+    try {
+      const notifMsg = isLevelUp 
+        ? `🎉 LEVEL UP! You've reached Level ${newLevel}! Outstanding wealth accumulation progress!` 
+        : `Earned +${amount} XP: ${reason}.`;
+      
+      const responseNotif = await fetch('/api/finance/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          type: isLevelUp ? 'system' : 'savings_milestone',
+          message: notifMsg
+        })
+      });
+      if (responseNotif.ok) {
+        const result = await responseNotif.json();
+        setNotifications(prev => [result.notification, ...prev]);
+      }
+    } catch (err) {
+      console.warn('Notification posting failed:', err);
+    }
+
+    try {
+      await fetch('/api/auth/update', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updates)
+      });
+    } catch (err) {
+      console.warn('Points sync failed:', err);
+    }
+  };
+
   // --- LEDGER OPERATIONS ---
 
   // 1. Transactions
@@ -387,6 +516,7 @@ export default function App() {
     // Update Local States first
     setTransactions(prev => [fullTx, ...prev]);
     await localDb.put('transactions', fullTx);
+    awardPoints(25, `Logged expense: ${fullTx.categoryName}`);
 
     if (isOnline && token) {
       try {
@@ -490,6 +620,7 @@ export default function App() {
 
     setBudgets(prev => [...prev, fullBudget]);
     await localDb.put('budgets', fullBudget);
+    awardPoints(50, `Configured budget for ${fullBudget.categoryName}`);
 
     if (isOnline && token) {
       try {
@@ -588,10 +719,26 @@ export default function App() {
   };
 
   const handleUpdateGoal = async (id: string, updates: any) => {
+    const beforeGoal = goals.find(g => g.id === id);
     setGoals(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
     const localItem = goals.find(g => g.id === id);
     if (localItem) {
-      await localDb.put('goals', { ...localItem, ...updates });
+      const mergedGoal = { ...localItem, ...updates };
+      await localDb.put('goals', mergedGoal);
+      
+      // Award XP for updates (funding or finishing a goal)
+      if (updates.currentAmount !== undefined && beforeGoal) {
+        const addedAmount = Number(updates.currentAmount) - Number(beforeGoal.currentAmount);
+        if (addedAmount > 0) {
+          if (Number(updates.currentAmount) >= Number(beforeGoal.targetAmount) && beforeGoal.currentAmount < beforeGoal.targetAmount) {
+            awardPoints(150, `Fully funded your savings vault "${beforeGoal.name}"! 🎉`);
+          } else {
+            awardPoints(40, `Deposited funds to savings goal "${beforeGoal.name}"`);
+          }
+        }
+      } else if (updates.status === 'reached' && (!beforeGoal || beforeGoal.status !== 'reached')) {
+        awardPoints(150, `Goal "${beforeGoal?.name || 'Savings'}" completed successfully! 🏆`);
+      }
     }
 
     if (isOnline && token && !id.startsWith('g_')) {
@@ -663,6 +810,7 @@ export default function App() {
 
     setSubscriptions(prev => [...prev, fullSub]);
     await localDb.put('subscriptions', fullSub);
+    awardPoints(35, `Added recurring subscription tracker: ${fullSub.name}`);
 
     if (isOnline && token) {
       try {
@@ -914,10 +1062,48 @@ export default function App() {
         onLogout={handleLogout}
         isOpen={sidebarOpen}
         setIsOpen={setSidebarOpen}
+        isCollapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
 
       {/* 2. Main content view block */}
       <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
+        
+        {/* Mobile top sticky header */}
+        <header className="md:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200/60 dark:border-slate-800/80 shadow-sm transition-colors duration-200">
+          <div className="flex items-center gap-2">
+            <Menu className="w-6 h-6 text-slate-600 dark:text-slate-300 cursor-pointer" onClick={() => setSidebarOpen(true)} />
+            <div className="flex items-center gap-1.5 ml-2">
+              <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+                <Wallet className="w-4 h-4 text-white" />
+              </div>
+              <span className="font-bold text-sm text-slate-900 dark:text-white">BudgetFlow</span>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            {/* Theme Toggle */}
+            <button 
+              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
+              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+            >
+              {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+            </button>
+
+            {/* Notifications Dropdown Selector */}
+            <button 
+              onClick={() => setNotificationsOpen(true)} 
+              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors relative cursor-pointer"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center animate-bounce">
+                  {unreadNotificationsCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </header>
         
         {/* Dynamic network alarm banner if offline (hidden in print) */}
         {!isOnline && (
@@ -1052,6 +1238,71 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 6. Points / Level Up Toast Alert */}
+      <AnimatePresence>
+        {pointsAlert && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 20, scale: 0.95 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            className={`fixed bottom-24 right-6 z-50 max-w-sm rounded-2xl border p-4 shadow-2xl flex items-start gap-4 transition-all duration-200 ${
+              pointsAlert.isLevelUp
+                ? 'bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 border-amber-400 text-white shadow-amber-500/20'
+                : 'bg-white dark:bg-slate-900 border-slate-200/80 dark:border-slate-800 text-slate-800 dark:text-white shadow-blue-500/10'
+            }`}
+          >
+            {pointsAlert.isLevelUp ? (
+              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0 animate-bounce">
+                <Trophy className="w-6 h-6" />
+              </div>
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-600 dark:text-blue-400 shrink-0">
+                <Zap className="w-5 h-5 fill-current animate-pulse" />
+              </div>
+            )}
+            
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className={`text-xs font-bold uppercase tracking-wider ${pointsAlert.isLevelUp ? 'text-yellow-100' : 'text-blue-500 dark:text-blue-400'}`}>
+                  {pointsAlert.isLevelUp ? 'Level Unlocked! 🎉' : 'XP Acquired! ⚡'}
+                </span>
+                <button 
+                  onClick={() => setPointsAlert(null)}
+                  className={`p-0.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors ${pointsAlert.isLevelUp ? 'text-white/80 hover:bg-white/10' : 'text-slate-400'}`}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              
+              <h4 className="text-sm font-bold mt-0.5 leading-snug">
+                {pointsAlert.isLevelUp 
+                  ? `Promoted to Level ${pointsAlert.level}!` 
+                  : `+${pointsAlert.amount} XP gained`}
+              </h4>
+              
+              <p className={`text-xs mt-1 ${pointsAlert.isLevelUp ? 'text-white/90 font-medium' : 'text-slate-500 dark:text-slate-400'}`}>
+                {pointsAlert.reason}
+              </p>
+              
+              {!pointsAlert.isLevelUp && (
+                <div className="mt-2.5 flex items-center gap-1.5">
+                  <div className="text-[10px] text-slate-400 font-mono shrink-0">
+                    Total: {user?.points ?? 150} XP
+                  </div>
+                  <div className="flex-1 h-1 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-blue-500 dark:bg-blue-400 rounded-full transition-all duration-300"
+                      style={{ width: `${(((user?.points ?? 150) % 1000) / 1000) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

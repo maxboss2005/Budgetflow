@@ -11,6 +11,9 @@ export interface User {
   theme: 'light' | 'dark';
   notificationsEnabled: boolean;
   createdAt: string;
+  points?: number;
+  level?: number;
+  achievements?: string[];
 }
 
 export interface Category {
