@@ -242,12 +242,12 @@ export default function App() {
 
   // --- Currency mapping helper ---
   const getSymbolByCode = (code: string) => {
-    const map: Record<string, string> = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'AUD': 'A$' };
+    const map: Record<string, string> = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'AUD': 'A$', 'NGN': '₦' };
     return map[code] || '$';
   };
 
   const getCodeBySymbol = (sym: string) => {
-    const map: Record<string, string> = { '$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY', 'A$': 'AUD' };
+    const map: Record<string, string> = { '$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY', 'A$': 'AUD', '₦': 'NGN' };
     return map[sym] || 'USD';
   };
 
