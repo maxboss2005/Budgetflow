@@ -1,0 +1,1058 @@
+import React, { useState, useEffect } from 'react';
+import { 
+  Plus, 
+  Wifi, 
+  WifiOff, 
+  CloudLightning,
+  Wallet,
+  X,
+  Sparkles,
+  HelpCircle
+} from 'lucide-react';
+
+// Components
+import Sidebar from './components/Sidebar';
+import Dashboard from './components/Dashboard';
+import Transactions from './components/Transactions';
+import Budgets from './components/Budgets';
+import Subscriptions from './components/Subscriptions';
+import Savings from './components/Savings';
+import Insights from './components/Insights';
+import Reports from './components/Reports';
+import Settings from './components/Settings';
+import Auth from './components/Auth';
+import NotificationsDrawer from './components/NotificationsDrawer';
+
+// Offline DB and types
+import { localDb } from './lib/indexedDb';
+import { 
+  User, 
+  Transaction, 
+  Budget, 
+  SavingsGoal, 
+  Subscription, 
+  Category, 
+  AppNotification 
+} from './types';
+
+export default function App() {
+  
+  // Theme state
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('budgetflow_theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  // Authentication states
+  const [token, setToken] = useState<string | null>(localStorage.getItem('budgetflow_token'));
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Layout states
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  // Financial Datasets States
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [goals, setGoals] = useState<SavingsGoal[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  
+  const [currencySymbol, setCurrencySymbol] = useState('$');
+  const [dataLoading, setDataLoading] = useState(false);
+
+  // PWA/Network synchronization states
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [syncQueueLength, setSyncQueueLength] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Global Transaction modal states (FAB shortcut)
+  const [globalTxModalOpen, setGlobalTxModalOpen] = useState(false);
+  const [globalTxAmount, setGlobalTxAmount] = useState('');
+  const [globalTxType, setGlobalTxType] = useState<'income' | 'expense'>('expense');
+  const [globalTxCategoryId, setGlobalTxCategoryId] = useState('');
+  const [globalTxDate, setGlobalTxDate] = useState(new Date().toISOString().split('T')[0]);
+  const [globalTxNotes, setGlobalTxNotes] = useState('');
+
+  // --- Theme Toggle Side-effects ---
+  useEffect(() => {
+    localStorage.setItem('budgetflow_theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  // --- Network Event Listeners ---
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      triggerAutomaticSync();
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, [token]);
+
+  // --- Startup Authentication check ---
+  useEffect(() => {
+    const initAuthAndDB = async () => {
+      try {
+        // Initialize local IndexedDB store
+        await localDb.init();
+        await updateLocalQueueCount();
+
+        if (token) {
+          // Verify current user details against cloud auth me
+          const response = await fetch('/api/auth/me', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            setUser(result.user);
+            setCurrencySymbol(getSymbolByCode(result.user.currency || 'USD'));
+          } else {
+            // Session invalid, flush state
+            handleLogout();
+          }
+        }
+      } catch (err) {
+        console.error('Failed initialization cycle:', err);
+      } finally {
+        setAuthLoading(false);
+      }
+    };
+
+    initAuthAndDB();
+  }, [token]);
+
+  // --- Hydrate datasets once authenticated ---
+  useEffect(() => {
+    if (!token) return;
+
+    const hydrateData = async () => {
+      setDataLoading(true);
+      try {
+        if (isOnline) {
+          // 1. Fetch live from Express cloud gateway
+          const [catRes, txRes, bRes, gRes, subRes, notRes] = await Promise.all([
+            fetch('/api/finance/categories', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('/api/finance/transactions', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('/api/finance/budgets', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('/api/finance/goals', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('/api/finance/subscriptions', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('/api/finance/notifications', { headers: { 'Authorization': `Bearer ${token}` } })
+          ]);
+
+          if (catRes.ok && txRes.ok && bRes.ok && gRes.ok && subRes.ok && notRes.ok) {
+            const [cats, txs, buds, gls, subs, notifs] = await Promise.all([
+              catRes.json(), txRes.json(), bRes.json(), gRes.json(), subRes.json(), notRes.json()
+            ]);
+
+            // Cache batch replacement inside IndexedDB
+            await localDb.cacheAll(
+              txs.transactions,
+              buds.budgets,
+              gls.goals,
+              subs.subscriptions,
+              cats.categories
+            );
+
+            // Populate React States
+            setTransactions(txs.transactions);
+            setBudgets(buds.budgets);
+            setGoals(gls.goals);
+            setSubscriptions(subs.subscriptions);
+            setCategories(cats.categories);
+            setNotifications(notifs.notifications);
+            
+            // Set first matching category as global default
+            const defaultExpense = cats.categories.find((c: Category) => c.type === 'expense');
+            if (defaultExpense) setGlobalTxCategoryId(defaultExpense.id);
+
+            return;
+          }
+        }
+
+        // 2. Offline Fallback: hydrate entirely from IndexedDB
+        console.log('Hydrating workspace from offline IndexedDB stores...');
+        const [cats, txs, buds, gls, subs] = await Promise.all([
+          localDb.getAll<Category>('categories'),
+          localDb.getAll<Transaction>('transactions'),
+          localDb.getAll<Budget>('budgets'),
+          localDb.getAll<SavingsGoal>('goals'),
+          localDb.getAll<Subscription>('subscriptions')
+        ]);
+
+        setTransactions(txs);
+        setBudgets(buds);
+        setGoals(gls);
+        setSubscriptions(subs);
+        setCategories(cats);
+        
+        const defaultExpense = cats.find((c: Category) => c.type === 'expense');
+        if (defaultExpense) setGlobalTxCategoryId(defaultExpense.id);
+
+      } catch (err) {
+        console.error('Data hydration failure:', err);
+      } finally {
+        setDataLoading(false);
+      }
+    };
+
+    hydrateData();
+  }, [token, isOnline]);
+
+  // --- Currency mapping helper ---
+  const getSymbolByCode = (code: string) => {
+    const map: Record<string, string> = { 'USD': '$', 'EUR': '€', 'GBP': '£', 'JPY': '¥', 'AUD': 'A$' };
+    return map[code] || '$';
+  };
+
+  const getCodeBySymbol = (sym: string) => {
+    const map: Record<string, string> = { '$': 'USD', '€': 'EUR', '£': 'GBP', '¥': 'JPY', 'A$': 'AUD' };
+    return map[sym] || 'USD';
+  };
+
+  // --- Queue Tracking Helpers ---
+  const updateLocalQueueCount = async () => {
+    const queue = await localDb.getQueue();
+    setSyncQueueLength(queue.length);
+  };
+
+  const triggerAutomaticSync = () => {
+    // If online and queue exists, run synchronizer
+    localDb.getQueue().then(queue => {
+      if (queue.length > 0 && navigator.onLine && token) {
+        handleTriggerSync();
+      }
+    });
+  };
+
+  // --- Synchronization Trigger pipeline ---
+  const handleTriggerSync = async () => {
+    if (!isOnline || !token) return;
+    setIsSyncing(true);
+    try {
+      const queue = await localDb.getQueue();
+      if (queue.length === 0) {
+        setIsSyncing(false);
+        return;
+      }
+
+      const response = await fetch('/api/finance/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ queue })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        
+        // Reset local queue completely
+        await localDb.clearQueue();
+        setSyncQueueLength(0);
+
+        // Batch replace IndexedDB cache with server's clean reconciled datasets
+        await localDb.cacheAll(
+          result.transactions,
+          result.budgets,
+          result.goals,
+          result.subscriptions,
+          result.categories
+        );
+
+        // Update React states
+        setTransactions(result.transactions);
+        setBudgets(result.budgets);
+        setGoals(result.goals);
+        setSubscriptions(result.subscriptions);
+        setCategories(result.categories);
+
+        // Fetch notifications
+        const notifRes = await fetch('/api/finance/notifications', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (notifRes.ok) {
+          const notifs = await notifRes.json();
+          setNotifications(notifs.notifications);
+        }
+      } else {
+        throw new Error('Cloud sync engine returned non-ok status.');
+      }
+    } catch (err) {
+      console.error('Offline queue sync pipeline failure:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  // --- AUTH HANDLERS ---
+  const handleLoginSuccess = (newUser: User, newToken: string) => {
+    localStorage.setItem('budgetflow_token', newToken);
+    setToken(newToken);
+    setUser(newUser);
+    setCurrencySymbol(getSymbolByCode(newUser.currency || 'USD'));
+    setActiveTab('dashboard');
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('budgetflow_token');
+    setToken(null);
+    setUser(null);
+    setTransactions([]);
+    setBudgets([]);
+    setGoals([]);
+    setSubscriptions([]);
+    setNotifications([]);
+    localDb.clearQueue();
+    localDb.cacheAll([], [], [], [], []);
+    setSyncQueueLength(0);
+  };
+
+  const handleUpdateUser = async (updates: any) => {
+    if (!token) return;
+    const response = await fetch('/api/auth/update', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify(updates)
+    });
+    if (response.ok) {
+      const result = await response.json();
+      setUser(result.user);
+      setCurrencySymbol(getSymbolByCode(result.user.currency || 'USD'));
+      return result.user;
+    } else {
+      throw new Error('Failed to update profile settings.');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!token) return;
+    const response = await fetch('/api/auth/delete', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (response.ok) {
+      handleLogout();
+    } else {
+      alert('Could not terminate user profile on the cloud.');
+    }
+  };
+
+  // --- LEDGER OPERATIONS ---
+
+  // 1. Transactions
+  const handleAddTransaction = async (tx: any) => {
+    const tempId = 'tx_' + Math.random().toString(36).substring(2, 9);
+    const category = categories.find(c => c.id === tx.categoryId);
+
+    const fullTx: Transaction = {
+      id: tempId,
+      userId: user?.id || 'guest',
+      amount: tx.amount,
+      type: tx.type,
+      categoryId: tx.categoryId,
+      categoryName: category?.name || 'Retail',
+      categoryColor: category?.color || '#3B82F6',
+      categoryIcon: category?.icon || 'HelpCircle',
+      date: tx.date,
+      notes: tx.notes,
+      isRecurring: tx.isRecurring,
+      recurrenceRule: tx.recurrenceRule,
+      receiptUrl: tx.receiptUrl,
+      isSynced: false,
+      createdAt: new Date().toISOString()
+    };
+
+    // Update Local States first
+    setTransactions(prev => [fullTx, ...prev]);
+    await localDb.put('transactions', fullTx);
+
+    if (isOnline && token) {
+      try {
+        const response = await fetch('/api/finance/transactions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(tx)
+        });
+        if (response.ok) {
+          const result = await response.json();
+          // Update temp ID with server ID
+          setTransactions(prev => prev.map(item => item.id === tempId ? { ...result.transaction, isSynced: true } : item));
+          await localDb.delete('transactions', tempId);
+          await localDb.put('transactions', { ...result.transaction, isSynced: true });
+          return;
+        }
+      } catch (err) {
+        console.warn('API logging failed, queuing locally:', err);
+      }
+    }
+
+    // Queue Offline Action
+    await localDb.addToQueue('create', 'transaction', tx);
+    await updateLocalQueueCount();
+  };
+
+  const handleUpdateTransaction = async (id: string, updates: any) => {
+    // Update Local States first
+    setTransactions(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    const localItem = transactions.find(t => t.id === id);
+    if (localItem) {
+      await localDb.put('transactions', { ...localItem, ...updates });
+    }
+
+    if (isOnline && token && !id.startsWith('tx_')) {
+      try {
+        const response = await fetch(`/api/finance/transactions/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updates)
+        });
+        if (response.ok) {
+          const result = await response.json();
+          setTransactions(prev => prev.map(item => item.id === id ? { ...result.transaction, isSynced: true } : item));
+          await localDb.put('transactions', { ...result.transaction, isSynced: true });
+          return;
+        }
+      } catch (err) {
+        console.warn('API edit failed, queuing locally:', err);
+      }
+    }
+
+    // Queue Offline Action
+    await localDb.addToQueue('update', 'transaction', { id, updates });
+    await updateLocalQueueCount();
+  };
+
+  const handleDeleteTransaction = async (id: string) => {
+    setTransactions(prev => prev.filter(item => item.id !== id));
+    await localDb.delete('transactions', id);
+
+    if (isOnline && token && !id.startsWith('tx_')) {
+      try {
+        const response = await fetch(`/api/finance/transactions/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) return;
+      } catch (err) {
+        console.warn('API deletion failed, queuing locally:', err);
+      }
+    }
+
+    // Queue Offline Action
+    await localDb.addToQueue('delete', 'transaction', { id });
+    await updateLocalQueueCount();
+  };
+
+  // 2. Budgets
+  const handleAddBudget = async (budget: any) => {
+    const tempId = 'b_' + Math.random().toString(36).substring(2, 9);
+    const category = categories.find(c => c.id === budget.categoryId);
+
+    const fullBudget: Budget = {
+      id: tempId,
+      userId: user?.id || 'guest',
+      categoryId: budget.categoryId,
+      categoryName: budget.categoryId === 'all' ? 'All Spending' : (category?.name || 'Unknown'),
+      amount: budget.amount,
+      period: budget.period,
+      startDate: budget.startDate,
+      endDate: budget.endDate,
+      createdAt: new Date().toISOString()
+    };
+
+    setBudgets(prev => [...prev, fullBudget]);
+    await localDb.put('budgets', fullBudget);
+
+    if (isOnline && token) {
+      try {
+        const response = await fetch('/api/finance/budgets', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(budget)
+        });
+        if (response.ok) {
+          const result = await response.json();
+          setBudgets(prev => prev.map(item => item.id === tempId ? result.budget : item));
+          await localDb.delete('budgets', tempId);
+          await localDb.put('budgets', result.budget);
+          return;
+        }
+      } catch (err) {
+        console.warn('Budget logging failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('create', 'budget', budget);
+    await updateLocalQueueCount();
+  };
+
+  const handleDeleteBudget = async (id: string) => {
+    setBudgets(prev => prev.filter(item => item.id !== id));
+    await localDb.delete('budgets', id);
+
+    if (isOnline && token && !id.startsWith('b_')) {
+      try {
+        const response = await fetch(`/api/finance/budgets/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) return;
+      } catch (err) {
+        console.warn('Budget deletion failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('delete', 'budget', { id });
+    await updateLocalQueueCount();
+  };
+
+  // 3. Goals
+  const handleAddGoal = async (goal: any) => {
+    const tempId = 'g_' + Math.random().toString(36).substring(2, 9);
+    
+    const fullGoal: SavingsGoal = {
+      id: tempId,
+      userId: user?.id || 'guest',
+      name: goal.name,
+      targetAmount: goal.targetAmount,
+      currentAmount: goal.currentAmount,
+      targetDate: goal.targetDate,
+      deadline: goal.targetDate, // Compatibility
+      color: goal.color,
+      icon: goal.icon,
+      status: goal.status,
+      createdAt: new Date().toISOString()
+    };
+
+    setGoals(prev => [...prev, fullGoal]);
+    await localDb.put('goals', fullGoal);
+
+    if (isOnline && token) {
+      try {
+        // Remap to API expected name
+        const apiPayload = { ...goal, deadline: goal.targetDate };
+        const response = await fetch('/api/finance/goals', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(apiPayload)
+        });
+        if (response.ok) {
+          const result = await response.json();
+          const mappedGoal = { ...result.goal, targetDate: result.goal.deadline };
+          setGoals(prev => prev.map(item => item.id === tempId ? mappedGoal : item));
+          await localDb.delete('goals', tempId);
+          await localDb.put('goals', mappedGoal);
+          return;
+        }
+      } catch (err) {
+        console.warn('Goal creation failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('create', 'goal', goal);
+    await updateLocalQueueCount();
+  };
+
+  const handleUpdateGoal = async (id: string, updates: any) => {
+    setGoals(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    const localItem = goals.find(g => g.id === id);
+    if (localItem) {
+      await localDb.put('goals', { ...localItem, ...updates });
+    }
+
+    if (isOnline && token && !id.startsWith('g_')) {
+      try {
+        const apiUpdates = { ...updates };
+        if (updates.targetDate) apiUpdates.deadline = updates.targetDate;
+
+        const response = await fetch(`/api/finance/goals/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(apiUpdates)
+        });
+        if (response.ok) {
+          const result = await response.json();
+          const mappedGoal = { ...result.goal, targetDate: result.goal.deadline };
+          setGoals(prev => prev.map(item => item.id === id ? mappedGoal : item));
+          await localDb.put('goals', mappedGoal);
+          return;
+        }
+      } catch (err) {
+        console.warn('Goal modification failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('update', 'goal', { id, updates });
+    await updateLocalQueueCount();
+  };
+
+  const handleDeleteGoal = async (id: string) => {
+    setGoals(prev => prev.filter(item => item.id !== id));
+    await localDb.delete('goals', id);
+
+    if (isOnline && token && !id.startsWith('g_')) {
+      try {
+        const response = await fetch(`/api/finance/goals/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) return;
+      } catch (err) {
+        console.warn('Goal deletion failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('delete', 'goal', { id });
+    await updateLocalQueueCount();
+  };
+
+  // 4. Subscriptions
+  const handleAddSubscription = async (sub: any) => {
+    const tempId = 'sub_' + Math.random().toString(36).substring(2, 9);
+    
+    const fullSub: Subscription = {
+      id: tempId,
+      userId: user?.id || 'guest',
+      name: sub.name,
+      amount: sub.amount,
+      billingCycle: sub.billingCycle,
+      nextBillingDate: sub.nextBillingDate,
+      status: 'active',
+      categoryId: sub.categoryId,
+      notes: sub.notes,
+      renewalReminderEnabled: sub.renewalReminderEnabled,
+      createdAt: new Date().toISOString()
+    };
+
+    setSubscriptions(prev => [...prev, fullSub]);
+    await localDb.put('subscriptions', fullSub);
+
+    if (isOnline && token) {
+      try {
+        const response = await fetch('/api/finance/subscriptions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(sub)
+        });
+        if (response.ok) {
+          const result = await response.json();
+          setSubscriptions(prev => prev.map(item => item.id === tempId ? result.subscription : item));
+          await localDb.delete('subscriptions', tempId);
+          await localDb.put('subscriptions', result.subscription);
+          return;
+        }
+      } catch (err) {
+        console.warn('Subscription tracking failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('create', 'subscription', sub);
+    await updateLocalQueueCount();
+  };
+
+  const handleUpdateSubscription = async (id: string, updates: any) => {
+    setSubscriptions(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    const localItem = subscriptions.find(s => s.id === id);
+    if (localItem) {
+      await localDb.put('subscriptions', { ...localItem, ...updates });
+    }
+
+    if (isOnline && token && !id.startsWith('sub_')) {
+      try {
+        const response = await fetch(`/api/finance/subscriptions/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updates)
+        });
+        if (response.ok) {
+          const result = await response.json();
+          setSubscriptions(prev => prev.map(item => item.id === id ? result.subscription : item));
+          await localDb.put('subscriptions', result.subscription);
+          return;
+        }
+      } catch (err) {
+        console.warn('Subscription edit failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('update', 'subscription', { id, updates });
+    await updateLocalQueueCount();
+  };
+
+  const handleDeleteSubscription = async (id: string) => {
+    setSubscriptions(prev => prev.filter(item => item.id !== id));
+    await localDb.delete('subscriptions', id);
+
+    if (isOnline && token && !id.startsWith('sub_')) {
+      try {
+        const response = await fetch(`/api/finance/subscriptions/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) return;
+      } catch (err) {
+        console.warn('Subscription deletion failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('delete', 'subscription', { id });
+    await updateLocalQueueCount();
+  };
+
+  // 5. Notifications Mark Read
+  const handleMarkNotificationsRead = async (id?: string) => {
+    if (id) {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+    } else {
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    }
+
+    if (isOnline && token) {
+      try {
+        await fetch('/api/finance/notifications/read', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ id })
+        });
+      } catch (err) {
+        console.warn('Failed marking notifications read on cloud:', err);
+      }
+    }
+  };
+
+  // --- GLOBAL TRANSACTION MODAL ACTION FORM SUBMIT (FAB Shortcut) ---
+  const handleGlobalTxSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const parsedAmount = parseFloat(globalTxAmount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      alert('Please enter a valid transfer amount.');
+      return;
+    }
+
+    handleAddTransaction({
+      amount: parsedAmount,
+      type: globalTxType,
+      categoryId: globalTxCategoryId,
+      date: globalTxDate,
+      notes: globalTxNotes.trim()
+    });
+
+    // Reset fields
+    setGlobalTxAmount('');
+    setGlobalTxNotes('');
+    setGlobalTxModalOpen(false);
+  };
+
+  // --- Auth Guards Loader Render block ---
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center space-y-4">
+        <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center animate-bounce shadow-lg shadow-blue-500/25">
+          <Wallet className="w-6 h-6 text-white" />
+        </div>
+        <p className="text-xs font-bold font-mono tracking-widest uppercase text-slate-400 animate-pulse">Replicating Environment...</p>
+      </div>
+    );
+  }
+
+  // Auth screen display if not logged in
+  if (!token || !user) {
+    return <Auth onAuthSuccess={handleLoginSuccess} />;
+  }
+
+  // --- View Selector Matrix router ---
+  const renderView = () => {
+    switch (activeTab) {
+      case 'dashboard':
+        return (
+          <Dashboard
+            transactions={transactions}
+            budgets={budgets}
+            goals={goals}
+            subscriptions={subscriptions}
+            categories={categories}
+            currencySymbol={currencySymbol}
+            onAddTxClick={() => setGlobalTxModalOpen(true)}
+            setActiveTab={setActiveTab}
+            loading={dataLoading}
+          />
+        );
+      case 'transactions':
+        return (
+          <Transactions
+            transactions={transactions}
+            categories={categories}
+            currencySymbol={currencySymbol}
+            onAddTransaction={handleAddTransaction}
+            onUpdateTransaction={handleUpdateTransaction}
+            onDeleteTransaction={handleDeleteTransaction}
+          />
+        );
+      case 'budgets':
+        return (
+          <Budgets
+            budgets={budgets}
+            categories={categories}
+            transactions={transactions}
+            currencySymbol={currencySymbol}
+            onAddBudget={handleAddBudget}
+            onDeleteBudget={handleDeleteBudget}
+          />
+        );
+      case 'subscriptions':
+        return (
+          <Subscriptions
+            subscriptions={subscriptions}
+            categories={categories}
+            currencySymbol={currencySymbol}
+            onAddSubscription={handleAddSubscription}
+            onUpdateSubscription={handleUpdateSubscription}
+            onDeleteSubscription={handleDeleteSubscription}
+          />
+        );
+      case 'savings':
+        return (
+          <Savings
+            goals={goals}
+            currencySymbol={currencySymbol}
+            onAddGoal={handleAddGoal}
+            onUpdateGoal={handleUpdateGoal}
+            onDeleteGoal={handleDeleteGoal}
+          />
+        );
+      case 'insights':
+        return <Insights token={token} isOnline={isOnline} />;
+      case 'reports':
+        return (
+          <Reports
+            transactions={transactions}
+            categories={categories}
+            budgets={budgets}
+            goals={goals}
+            currencySymbol={currencySymbol}
+          />
+        );
+      case 'settings':
+        return (
+          <Settings
+            user={user}
+            onUpdateUser={handleUpdateUser}
+            onDeleteAccount={handleDeleteAccount}
+            currencySymbol={currencySymbol}
+            setCurrencySymbol={setCurrencySymbol}
+          />
+        );
+      default:
+        return <div className="p-8 text-slate-500">Unresolved section scope</div>;
+    }
+  };
+
+  const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
+
+  return (
+    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
+      
+      {/* 1. Side Drawer Panel */}
+      <Sidebar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        user={user}
+        theme={theme}
+        setTheme={setTheme}
+        isOnline={isOnline}
+        syncQueueLength={syncQueueLength}
+        isSyncing={isSyncing}
+        onTriggerSync={handleTriggerSync}
+        unreadNotificationsCount={unreadNotificationsCount}
+        setIsNotificationOpen={setNotificationsOpen}
+        onLogout={handleLogout}
+        isOpen={sidebarOpen}
+        setIsOpen={setSidebarOpen}
+      />
+
+      {/* 2. Main content view block */}
+      <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
+        
+        {/* Dynamic network alarm banner if offline (hidden in print) */}
+        {!isOnline && (
+          <div className="bg-amber-500 text-white px-4 py-2 text-xs font-bold flex items-center justify-center gap-2 shadow-sm no-print">
+            <WifiOff className="w-4 h-4 text-white" />
+            <span>Currently Operating Offline. Ledger additions are held locally and automatically queued for synchronization.</span>
+          </div>
+        )}
+
+        {/* Dynamic view component mount */}
+        <div className="flex-1 overflow-y-auto pb-16 md:pb-6">
+          {renderView()}
+        </div>
+
+      </main>
+
+      {/* 3. In-App Notifications list drawer */}
+      <NotificationsDrawer
+        notifications={notifications}
+        isOpen={notificationsOpen}
+        onClose={() => setNotificationsOpen(false)}
+        onMarkRead={handleMarkNotificationsRead}
+      />
+
+      {/* 4. Persistent Floating Action Button Shortcut (FAB) */}
+      <button
+        onClick={() => setGlobalTxModalOpen(true)}
+        className="fixed bottom-6 right-6 z-40 md:z-10 w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-2xl hover:shadow-blue-600/35 hover:scale-105 active:scale-95 transition-all cursor-pointer no-print"
+        title="Log transaction instantly"
+      >
+        <Plus className="w-6 h-6" />
+      </button>
+
+      {/* 5. Global FAB Transaction logger modal */}
+      {globalTxModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
+            
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-blue-500" />
+                <span>Instant Transfer Logger</span>
+              </h3>
+              <button onClick={() => setGlobalTxModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleGlobalTxSubmit} className="p-6 space-y-4">
+              
+              {/* Type selector */}
+              <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
+                <button
+                  type="button"
+                  onClick={() => { setGlobalTxType('expense'); }}
+                  className={`py-1.5 rounded-lg text-xs font-bold transition-all ${globalTxType === 'expense' ? 'bg-white dark:bg-slate-800 text-red-500 shadow-sm' : 'text-slate-400'}`}
+                >
+                  Expense
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setGlobalTxType('income'); }}
+                  className={`py-1.5 rounded-lg text-xs font-bold transition-all ${globalTxType === 'income' ? 'bg-white dark:bg-slate-800 text-emerald-500 shadow-sm' : 'text-slate-400'}`}
+                >
+                  Income
+                </button>
+              </div>
+
+              {/* Value and date */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Value Amount</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={globalTxAmount}
+                    onChange={(e) => setGlobalTxAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Settle Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={globalTxDate}
+                    onChange={(e) => setGlobalTxDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Taxonomy category */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Taxonomy / Category</label>
+                <select
+                  value={globalTxCategoryId}
+                  onChange={(e) => setGlobalTxCategoryId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  {categories.filter(c => c.type === globalTxType).map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Notes Reference</label>
+                <input
+                  type="text"
+                  value={globalTxNotes}
+                  onChange={(e) => setGlobalTxNotes(e.target.value)}
+                  placeholder="e.g. Uber rides, salary transfer..."
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                />
+              </div>
+
+              {/* Submit */}
+              <button
+                type="submit"
+                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold hover:shadow-lg hover:shadow-blue-500/15 transition-all cursor-pointer flex items-center justify-center gap-2 mt-4"
+              >
+                <span>Commit Ledger Entry</span>
+              </button>
+
+            </form>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

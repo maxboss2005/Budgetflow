@@ -1,0 +1,6 @@
+{
+  "name": "BudgetFlow",
+  "description": "An intelligent personal finance SaaS platform with real-time analytics, budgets, savings goals, subscription tracking, and Gemini AI-powered smart insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

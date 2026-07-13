@@ -1,0 +1,38 @@
+{
+  "short_name": "BudgetFlow",
+  "name": "BudgetFlow Smart Wealth SaaS",
+  "description": "An intelligent personal finance platform with real-time analytics, budgeting, and AI insights.",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/fluency/192/000000/wallet.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://img.icons8.com/fluency/512/000000/wallet.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#0F172A",
+  "theme_color": "#3B82F6",
+  "display": "standalone",
+  "orientation": "portrait",
+  "shortcuts": [
+    {
+      "name": "Add Transaction",
+      "short_name": "New Tx",
+      "url": "/?action=new-tx",
+      "icons": [{ "src": "https://img.icons8.com/fluency/96/000000/add.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "AI Insights",
+      "short_name": "AI Insights",
+      "url": "/?tab=insights",
+      "icons": [{ "src": "https://img.icons8.com/fluency/96/000000/mind-map.png", "sizes": "96x96" }]
+    }
+  ]
+}
