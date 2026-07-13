@@ -14,7 +14,8 @@ import {
   Lock,
   Unlock,
   Eye,
-  EyeOff
+  EyeOff,
+  AlertCircle
 } from 'lucide-react';
 import { User as UserType } from '../types';
 
@@ -39,6 +40,9 @@ export default function Settings({
   const [updating, setUpdating] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  
+  // Custom non-blocking modal confirmation states
+  const [confirmTarget, setConfirmTarget] = useState<{ type: string; title: string; desc: string; action: () => void } | null>(null);
 
   // States for admin panel locker
   const [isAdminUnlocked, setIsAdminUnlocked] = useState(() => {
@@ -91,18 +95,25 @@ export default function Settings({
   };
 
   const handleIndexedDBReset = () => {
-    if (confirm('Are you sure you want to reset your local offline cache? This will clear all pending local transactions in your sync queue and refresh from the server.')) {
-      localStorage.clear();
-      // Drop IndexedDB
-      const req = indexedDB.deleteDatabase('BudgetFlowDB');
-      req.onsuccess = () => {
-        alert('Local cache database drop complete. Reloading workspace...');
-        window.location.reload();
-      };
-      req.onerror = () => {
-        alert('Could not delete local stores.');
-      };
-    }
+    setConfirmTarget({
+      type: 'reset_cache',
+      title: 'Reset Client Cache',
+      desc: 'Are you sure you want to reset your local offline cache? This will clear all pending local transactions in your sync queue and refresh from the server.',
+      action: () => {
+        localStorage.clear();
+        // Drop IndexedDB
+        const req = indexedDB.deleteDatabase('BudgetFlowDB');
+        req.onsuccess = () => {
+          setSuccessMsg('Local cache dropped. Reloading workspace...');
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+        };
+        req.onerror = () => {
+          setErrorMsg('Could not delete local stores.');
+        };
+      }
+    });
   };
 
   return (
@@ -345,7 +356,16 @@ export default function Settings({
                   </button>
 
                   <button
-                    onClick={() => { if (confirm('CRITICAL ALERT: Are you sure you want to permanently delete your user account? This will wipe your financial databases on the cloud.')) onDeleteAccount(); }}
+                    onClick={() => {
+                      setConfirmTarget({
+                        type: 'purge_account',
+                        title: 'Purge Account Databases',
+                        desc: 'CRITICAL ALERT: Are you sure you want to permanently delete your user account? This will wipe your financial databases on the cloud. This action is irreversible.',
+                        action: () => {
+                          onDeleteAccount();
+                        }
+                      });
+                    }}
                     className="w-full text-left px-3.5 py-2.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-between shadow-sm shadow-red-600/15"
                   >
                     <div>
@@ -361,6 +381,44 @@ export default function Settings({
         </div>
 
       </div>
+
+      {/* CUSTOM CONFIRMATION MODAL */}
+      {confirmTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl p-6 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/40 text-red-500 flex items-center justify-center mx-auto animate-pulse">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                {confirmTarget.title}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                {confirmTarget.desc}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmTarget(null)}
+                className="flex-1 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  confirmTarget.action();
+                  setConfirmTarget(null);
+                }}
+                className="flex-1 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-500 rounded-xl hover:shadow-lg hover:shadow-red-500/15 transition-all cursor-pointer"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

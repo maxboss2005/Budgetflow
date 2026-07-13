@@ -14,7 +14,8 @@ import {
   Gift,
   Award,
   CheckCircle2,
-  ChevronRight
+  ChevronRight,
+  AlertCircle
 } from 'lucide-react';
 import { SavingsGoal } from '../types';
 import { IconResolver } from './Dashboard';
@@ -34,6 +35,10 @@ export default function Savings({
   onUpdateGoal,
   onDeleteGoal
 }: SavingsProps) {
+
+  // Custom Delete & Selection State
+  const [selectedGoalIds, setSelectedGoalIds] = useState<string[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: string; id?: string; ids?: string[] } | null>(null);
 
   // Modal State for Goals creation
   const [modalOpen, setModalOpen] = useState(false);
@@ -172,6 +177,32 @@ export default function Savings({
         </div>
       </div>
 
+      {/* Mass Delete Selection Alert Banner */}
+      {selectedGoalIds.length > 0 && (
+        <div className="px-4 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-between animate-fade-in no-print">
+          <span className="text-xs font-bold text-red-600 dark:text-red-400">
+            Selected {selectedGoalIds.length} savings goal{selectedGoalIds.length > 1 ? 's' : ''} for mass deletion
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setSelectedGoalIds([])}
+              className="px-3 py-1 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 text-xs font-semibold cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                setDeleteTarget({ type: 'mass_goals', ids: selectedGoalIds });
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all hover:shadow-md cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Mass Delete ({selectedGoalIds.length})</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Grid of goals */}
       {goals.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -192,6 +223,19 @@ export default function Savings({
                 <div>
                   <div className="flex items-start justify-between gap-2 mb-4">
                     <div className="flex items-center gap-3">
+                      {/* Checkbox for mass selection */}
+                      <input 
+                        type="checkbox"
+                        className="rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-blue-600 focus:ring-blue-500 cursor-pointer w-4 h-4 mr-1"
+                        checked={selectedGoalIds.includes(goal.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedGoalIds(prev => [...prev, goal.id]);
+                          } else {
+                            setSelectedGoalIds(prev => prev.filter(id => id !== goal.id));
+                          }
+                        }}
+                      />
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center border" style={{ 
                         borderColor: `${goal.color}25`,
                         backgroundColor: `${goal.color}10`,
@@ -206,7 +250,7 @@ export default function Savings({
                     </div>
 
                     <button 
-                      onClick={() => { if (confirm('Are you sure you want to delete this savings goal?')) onDeleteGoal(goal.id); }}
+                      onClick={() => setDeleteTarget({ type: 'goal', id: goal.id })}
                       className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
                       title="Delete target"
                     >
@@ -455,6 +499,51 @@ export default function Savings({
               </button>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM CONFIRM DELETE MODAL */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl p-6 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/40 text-red-500 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                {deleteTarget.ids ? 'Mass Delete Records' : 'Confirm Deletion'}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                {deleteTarget.ids 
+                  ? `Are you sure you want to permanently delete these ${deleteTarget.ids.length} selected items? This action cannot be undone.`
+                  : 'Are you sure you want to permanently delete this record? This action cannot be undone.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (deleteTarget.ids) {
+                    deleteTarget.ids.forEach(id => onDeleteGoal(id));
+                    setSelectedGoalIds([]);
+                  } else if (deleteTarget.id) {
+                    onDeleteGoal(deleteTarget.id);
+                  }
+                  setDeleteTarget(null);
+                }}
+                className="flex-1 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-500 rounded-xl hover:shadow-lg hover:shadow-red-500/15 transition-all cursor-pointer"
+              >
+                Yes, Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

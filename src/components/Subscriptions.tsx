@@ -44,6 +44,9 @@ export default function Subscriptions({
   const [modalOpen, setModalOpen] = useState(false);
   const [editingSub, setEditingSub] = useState<Subscription | null>(null);
 
+  // Custom Delete State
+  const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
+
   // Form Fields
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
@@ -415,8 +418,8 @@ export default function Subscriptions({
 
                       {/* Delete node completely */}
                       <button
-                        onClick={() => { if (confirm('Are you sure you want to delete this subscription registry completely?')) onDeleteSubscription(sub.id); }}
-                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-all cursor-pointer"
+                        onClick={() => setDeleteTarget({ type: 'subscription', id: sub.id })}
+                        className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-400 hover:text-red-500 hover:bg-red-550/10 dark:hover:bg-red-950/20 transition-all cursor-pointer"
                         title="Delete registry"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
@@ -563,6 +566,46 @@ export default function Subscriptions({
               </button>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM CONFIRM DELETE MODAL */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl p-6 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/40 text-red-500 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Confirm Deletion
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                Are you sure you want to permanently delete this subscription registry? This action cannot be undone.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (deleteTarget.id) {
+                    onDeleteSubscription(deleteTarget.id);
+                  }
+                  setDeleteTarget(null);
+                }}
+                className="flex-1 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-500 rounded-xl hover:shadow-lg hover:shadow-red-500/15 transition-all cursor-pointer"
+              >
+                Yes, Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

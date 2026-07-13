@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { Transaction, Category } from '../types';
 import { IconResolver } from './Dashboard';
+import FileImport from './FileImport';
 
 interface TransactionsProps {
   transactions: Transaction[];
@@ -29,6 +30,9 @@ interface TransactionsProps {
   onAddTransaction: (tx: any) => void;
   onUpdateTransaction: (id: string, updates: any) => void;
   onDeleteTransaction: (id: string) => void;
+  isOnline: boolean;
+  token: string | null;
+  awardPoints?: (amount: number, reason: string) => void;
 }
 
 export default function Transactions({
@@ -37,7 +41,10 @@ export default function Transactions({
   currencySymbol,
   onAddTransaction,
   onUpdateTransaction,
-  onDeleteTransaction
+  onDeleteTransaction,
+  isOnline,
+  token,
+  awardPoints
 }: TransactionsProps) {
   
   // States
@@ -45,6 +52,10 @@ export default function Transactions({
   const [typeFilter, setTypeFilter] = useState<'all' | 'income' | 'expense'>('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState<'all' | 'week' | 'month' | 'year'>('all');
+  
+  // Custom Delete & Selection State
+  const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: string; id?: string; ids?: string[] } | null>(null);
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -235,6 +246,15 @@ export default function Transactions({
         </button>
       </div>
 
+      {/* Intelligent Document / Statement Ingestion Hub */}
+      <FileImport
+        categories={categories}
+        isOnline={isOnline}
+        token={token}
+        onAddTransaction={onAddTransaction}
+        awardPoints={awardPoints}
+      />
+
       {/* Control Panel: Filters & Search bar */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200/60 dark:border-slate-800/80 p-4 space-y-4 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center gap-4 justify-between">
@@ -316,11 +336,56 @@ export default function Transactions({
 
       {/* Main Ledger Table */}
       <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm">
+        {selectedTxIds.length > 0 && (
+          <div className="mb-4 px-4 py-3 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-between animate-fade-in no-print">
+            <span className="text-xs font-bold text-red-600 dark:text-red-400">
+              Selected {selectedTxIds.length} transaction{selectedTxIds.length > 1 ? 's' : ''} for mass deletion
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSelectedTxIds([])}
+                className="px-3 py-1 rounded-xl text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 text-xs font-semibold cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setDeleteTarget({ type: 'mass_transactions', ids: selectedTxIds });
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all hover:shadow-md cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Mass Delete ({selectedTxIds.length})</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {paginatedTransactions.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-800/50">
+                  <th className="pb-3.5 pl-2 w-10">
+                    <input 
+                      type="checkbox"
+                      className="rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-blue-600 focus:ring-blue-500 cursor-pointer w-4 h-4"
+                      checked={paginatedTransactions.length > 0 && paginatedTransactions.every(t => selectedTxIds.includes(t.id))}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedTxIds(prev => {
+                            const newSelections = [...prev];
+                            paginatedTransactions.forEach(t => {
+                              if (!newSelections.includes(t.id)) newSelections.push(t.id);
+                            });
+                            return newSelections;
+                          });
+                        } else {
+                          setSelectedTxIds(prev => prev.filter(id => !paginatedTransactions.some(t => t.id === id)));
+                        }
+                      }}
+                    />
+                  </th>
                   <th className="pb-3.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Date / Reference</th>
                   <th className="pb-3.5 text-xs font-semibold text-slate-400 uppercase tracking-wider">Category</th>
                   <th className="pb-3.5 text-xs font-semibold text-slate-400 uppercase tracking-wider hidden md:table-cell">Recurrence</th>
@@ -332,6 +397,20 @@ export default function Transactions({
               <tbody className="divide-y divide-slate-100/50 dark:divide-slate-800/30">
                 {paginatedTransactions.map((t, idx) => (
                   <tr key={t.id || idx} className="group hover:bg-slate-50/50 dark:hover:bg-slate-950/25 transition-colors">
+                    <td className="py-4 pl-2 w-10">
+                      <input 
+                        type="checkbox"
+                        className="rounded border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-blue-600 focus:ring-blue-500 cursor-pointer w-4 h-4"
+                        checked={selectedTxIds.includes(t.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedTxIds(prev => [...prev, t.id]);
+                          } else {
+                            setSelectedTxIds(prev => prev.filter(id => id !== t.id));
+                          }
+                        }}
+                      />
+                    </td>
                     
                     {/* Reference & Date */}
                     <td className="py-4">
@@ -408,7 +487,7 @@ export default function Transactions({
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button 
-                          onClick={() => { if (confirm('Are you sure you want to delete this transaction?')) onDeleteTransaction(t.id); }}
+                          onClick={() => setDeleteTarget({ type: 'transaction', id: t.id })}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                           title="Delete transfer"
                         >
@@ -633,6 +712,51 @@ export default function Transactions({
               </button>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM CONFIRM DELETE MODAL */}
+      {deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl p-6 text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-950/40 text-red-500 flex items-center justify-center mx-auto">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                {deleteTarget.ids ? 'Mass Delete Records' : 'Confirm Deletion'}
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                {deleteTarget.ids 
+                  ? `Are you sure you want to permanently delete these ${deleteTarget.ids.length} selected items? This action cannot be undone.`
+                  : 'Are you sure you want to permanently delete this record? This action cannot be undone.'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-300 bg-slate-100 dark:bg-slate-800 rounded-xl transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (deleteTarget.ids) {
+                    deleteTarget.ids.forEach(id => onDeleteTransaction(id));
+                    setSelectedTxIds([]);
+                  } else if (deleteTarget.id) {
+                    onDeleteTransaction(deleteTarget.id);
+                  }
+                  setDeleteTarget(null);
+                }}
+                className="flex-1 py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-500 rounded-xl hover:shadow-lg hover:shadow-red-500/15 transition-all cursor-pointer"
+              >
+                Yes, Delete
+              </button>
+            </div>
           </div>
         </div>
       )}

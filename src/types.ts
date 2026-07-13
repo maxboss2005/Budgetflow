@@ -54,6 +54,7 @@ export interface Budget {
   period: 'daily' | 'weekly' | 'monthly';
   startDate: string;
   endDate: string;
+  offlineId?: string;    // Temporary local ID
   createdAt?: string;
 }
 
@@ -68,6 +69,7 @@ export interface SavingsGoal {
   color: string;
   icon: string;
   status?: string;       // Active or Completed status flags
+  offlineId?: string;    // Temporary local ID
   createdAt: string;
 }
 
@@ -83,6 +85,7 @@ export interface Subscription {
   categoryId: string;
   notes?: string;
   renewalReminderEnabled: boolean;
+  offlineId?: string;    // Temporary local ID
   createdAt: string;
 }
 

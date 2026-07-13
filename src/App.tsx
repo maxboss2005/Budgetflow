@@ -165,12 +165,20 @@ export default function App() {
 
   // --- Hydrate datasets once authenticated ---
   useEffect(() => {
-    if (!token) return;
+    if (!token || authLoading) return;
 
     const hydrateData = async () => {
       setDataLoading(true);
       try {
         if (isOnline) {
+          // Sync any offline queued operations first before fetching clean datasets
+          const queue = await localDb.getQueue();
+          if (queue.length > 0) {
+            await handleTriggerSync();
+            setDataLoading(false);
+            return;
+          }
+
           // 1. Fetch live from Express cloud gateway
           const [catRes, txRes, bRes, gRes, subRes, notRes] = await Promise.all([
             fetch('/api/finance/categories', { headers: { 'Authorization': `Bearer ${token}` } }),
@@ -238,7 +246,7 @@ export default function App() {
     };
 
     hydrateData();
-  }, [token, isOnline]);
+  }, [token, isOnline, authLoading]);
 
   // --- Currency mapping helper ---
   const getSymbolByCode = (code: string) => {
@@ -268,7 +276,7 @@ export default function App() {
 
   // --- Synchronization Trigger pipeline ---
   const handleTriggerSync = async () => {
-    if (!isOnline || !token) return;
+    if ((!isOnline && !navigator.onLine) || !token) return;
     setIsSyncing(true);
     try {
       const queue = await localDb.getQueue();
@@ -492,7 +500,7 @@ export default function App() {
 
   // 1. Transactions
   const handleAddTransaction = async (tx: any) => {
-    const tempId = 'tx_' + Math.random().toString(36).substring(2, 9);
+    const tempId = 'tx_temp_' + Math.random().toString(36).substring(2, 9);
     const category = categories.find(c => c.id === tx.categoryId);
 
     const fullTx: Transaction = {
@@ -542,7 +550,7 @@ export default function App() {
     }
 
     // Queue Offline Action
-    await localDb.addToQueue('create', 'transaction', tx);
+    await localDb.addToQueue('create', 'transaction', { ...tx, id: tempId });
     await updateLocalQueueCount();
   };
 
@@ -554,7 +562,7 @@ export default function App() {
       await localDb.put('transactions', { ...localItem, ...updates });
     }
 
-    if (isOnline && token && !id.startsWith('tx_')) {
+    if (isOnline && token && !id.startsWith('tx_temp_')) {
       try {
         const response = await fetch(`/api/finance/transactions/${id}`, {
           method: 'PUT',
@@ -584,7 +592,7 @@ export default function App() {
     setTransactions(prev => prev.filter(item => item.id !== id));
     await localDb.delete('transactions', id);
 
-    if (isOnline && token && !id.startsWith('tx_')) {
+    if (isOnline && token && !id.startsWith('tx_temp_')) {
       try {
         const response = await fetch(`/api/finance/transactions/${id}`, {
           method: 'DELETE',
@@ -603,7 +611,7 @@ export default function App() {
 
   // 2. Budgets
   const handleAddBudget = async (budget: any) => {
-    const tempId = 'b_' + Math.random().toString(36).substring(2, 9);
+    const tempId = 'b_temp_' + Math.random().toString(36).substring(2, 9);
     const category = categories.find(c => c.id === budget.categoryId);
 
     const fullBudget: Budget = {
@@ -644,7 +652,7 @@ export default function App() {
       }
     }
 
-    await localDb.addToQueue('create', 'budget', budget);
+    await localDb.addToQueue('create', 'budget', { ...budget, id: tempId });
     await updateLocalQueueCount();
   };
 
@@ -652,7 +660,7 @@ export default function App() {
     setBudgets(prev => prev.filter(item => item.id !== id));
     await localDb.delete('budgets', id);
 
-    if (isOnline && token && !id.startsWith('b_')) {
+    if (isOnline && token && !id.startsWith('b_temp_')) {
       try {
         const response = await fetch(`/api/finance/budgets/${id}`, {
           method: 'DELETE',
@@ -670,7 +678,7 @@ export default function App() {
 
   // 3. Goals
   const handleAddGoal = async (goal: any) => {
-    const tempId = 'g_' + Math.random().toString(36).substring(2, 9);
+    const tempId = 'g_temp_' + Math.random().toString(36).substring(2, 9);
     
     const fullGoal: SavingsGoal = {
       id: tempId,
@@ -714,7 +722,7 @@ export default function App() {
       }
     }
 
-    await localDb.addToQueue('create', 'goal', goal);
+    await localDb.addToQueue('create', 'goal', { ...goal, id: tempId });
     await updateLocalQueueCount();
   };
 
@@ -741,7 +749,7 @@ export default function App() {
       }
     }
 
-    if (isOnline && token && !id.startsWith('g_')) {
+    if (isOnline && token && !id.startsWith('g_temp_')) {
       try {
         const apiUpdates = { ...updates };
         if (updates.targetDate) apiUpdates.deadline = updates.targetDate;
@@ -774,7 +782,7 @@ export default function App() {
     setGoals(prev => prev.filter(item => item.id !== id));
     await localDb.delete('goals', id);
 
-    if (isOnline && token && !id.startsWith('g_')) {
+    if (isOnline && token && !id.startsWith('g_temp_')) {
       try {
         const response = await fetch(`/api/finance/goals/${id}`, {
           method: 'DELETE',
@@ -792,7 +800,7 @@ export default function App() {
 
   // 4. Subscriptions
   const handleAddSubscription = async (sub: any) => {
-    const tempId = 'sub_' + Math.random().toString(36).substring(2, 9);
+    const tempId = 'sub_temp_' + Math.random().toString(36).substring(2, 9);
     
     const fullSub: Subscription = {
       id: tempId,
@@ -834,7 +842,7 @@ export default function App() {
       }
     }
 
-    await localDb.addToQueue('create', 'subscription', sub);
+    await localDb.addToQueue('create', 'subscription', { ...sub, id: tempId });
     await updateLocalQueueCount();
   };
 
@@ -845,7 +853,7 @@ export default function App() {
       await localDb.put('subscriptions', { ...localItem, ...updates });
     }
 
-    if (isOnline && token && !id.startsWith('sub_')) {
+    if (isOnline && token && !id.startsWith('sub_temp_')) {
       try {
         const response = await fetch(`/api/finance/subscriptions/${id}`, {
           method: 'PUT',
@@ -874,7 +882,7 @@ export default function App() {
     setSubscriptions(prev => prev.filter(item => item.id !== id));
     await localDb.delete('subscriptions', id);
 
-    if (isOnline && token && !id.startsWith('sub_')) {
+    if (isOnline && token && !id.startsWith('sub_temp_')) {
       try {
         const response = await fetch(`/api/finance/subscriptions/${id}`, {
           method: 'DELETE',
@@ -980,6 +988,9 @@ export default function App() {
             onAddTransaction={handleAddTransaction}
             onUpdateTransaction={handleUpdateTransaction}
             onDeleteTransaction={handleDeleteTransaction}
+            isOnline={isOnline}
+            token={token}
+            awardPoints={awardPoints}
           />
         );
       case 'budgets':
@@ -1015,7 +1026,18 @@ export default function App() {
           />
         );
       case 'insights':
-        return <Insights token={token} isOnline={isOnline} />;
+        return (
+          <Insights 
+            token={token} 
+            isOnline={isOnline} 
+            transactions={transactions}
+            categories={categories}
+            budgets={budgets}
+            goals={goals}
+            subscriptions={subscriptions}
+            currencySymbol={currencySymbol}
+          />
+        );
       case 'reports':
         return (
           <Reports

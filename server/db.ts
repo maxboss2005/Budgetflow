@@ -400,10 +400,16 @@ export class Database {
         if (entityType === 'transaction') {
           if (action === 'create') {
             // Check for potential duplicate by matching offlineId or date+amount+notes
-            const duplicate = this.schema.transactions.find(t => 
-              t.userId === userId && 
-              (t.offlineId === payload.id || t.id === payload.id || (t.amount === payload.amount && t.date === payload.date && t.categoryId === payload.categoryId))
-            );
+            const duplicate = this.schema.transactions.find(t => {
+              if (t.userId !== userId) return false;
+              if (payload.id) {
+                return t.offlineId === payload.id || t.id === payload.id;
+              }
+              return t.amount === payload.amount && 
+                     t.date === payload.date && 
+                     t.categoryId === payload.categoryId &&
+                     t.notes === payload.notes;
+            });
             if (!duplicate) {
               const { id, isSynced, offlineId, ...cleanPayload } = payload;
               this.createTransaction(userId, {
@@ -415,7 +421,7 @@ export class Database {
           } else if (action === 'update') {
             const dbTx = this.schema.transactions.find(t => t.userId === userId && (t.id === payload.id || t.offlineId === payload.id));
             if (dbTx) {
-              this.updateTransaction(userId, dbTx.id, payload);
+              this.updateTransaction(userId, dbTx.id, payload.updates || payload);
               syncedCount++;
             }
           } else if (action === 'delete') {
@@ -427,33 +433,60 @@ export class Database {
           }
         } else if (entityType === 'budget') {
           if (action === 'create') {
-            this.createBudget(userId, payload);
+            const { id, isSynced, offlineId, ...cleanPayload } = payload;
+            this.createBudget(userId, {
+              ...cleanPayload,
+              offlineId: payload.id
+            } as any);
             syncedCount++;
           } else if (action === 'delete') {
-            this.deleteBudget(userId, payload.id);
-            syncedCount++;
+            const dbBudget = this.schema.budgets.find(b => b.userId === userId && (b.id === payload.id || b.offlineId === payload.id));
+            if (dbBudget) {
+              this.deleteBudget(userId, dbBudget.id);
+              syncedCount++;
+            }
           }
         } else if (entityType === 'goal') {
           if (action === 'create') {
-            this.createGoal(userId, payload);
+            const { id, isSynced, offlineId, ...cleanPayload } = payload;
+            this.createGoal(userId, {
+              ...cleanPayload,
+              offlineId: payload.id
+            } as any);
             syncedCount++;
           } else if (action === 'update') {
-            this.updateGoal(userId, payload.id, payload);
-            syncedCount++;
+            const dbGoal = this.schema.goals.find(g => g.userId === userId && (g.id === payload.id || g.offlineId === payload.id));
+            if (dbGoal) {
+              this.updateGoal(userId, dbGoal.id, payload.updates || payload);
+              syncedCount++;
+            }
           } else if (action === 'delete') {
-            this.deleteGoal(userId, payload.id);
-            syncedCount++;
+            const dbGoal = this.schema.goals.find(g => g.userId === userId && (g.id === payload.id || g.offlineId === payload.id));
+            if (dbGoal) {
+              this.deleteGoal(userId, dbGoal.id);
+              syncedCount++;
+            }
           }
         } else if (entityType === 'subscription') {
           if (action === 'create') {
-            this.createSubscription(userId, payload);
+            const { id, isSynced, offlineId, ...cleanPayload } = payload;
+            this.createSubscription(userId, {
+              ...cleanPayload,
+              offlineId: payload.id
+            } as any);
             syncedCount++;
           } else if (action === 'update') {
-            this.updateSubscription(userId, payload.id, payload);
-            syncedCount++;
+            const dbSub = this.schema.subscriptions.find(s => s.userId === userId && (s.id === payload.id || s.offlineId === payload.id));
+            if (dbSub) {
+              this.updateSubscription(userId, dbSub.id, payload.updates || payload);
+              syncedCount++;
+            }
           } else if (action === 'delete') {
-            this.deleteSubscription(userId, payload.id);
-            syncedCount++;
+            const dbSub = this.schema.subscriptions.find(s => s.userId === userId && (s.id === payload.id || s.offlineId === payload.id));
+            if (dbSub) {
+              this.deleteSubscription(userId, dbSub.id);
+              syncedCount++;
+            }
           }
         } else if (entityType === 'category') {
           if (action === 'create') {
