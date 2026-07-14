@@ -1193,6 +1193,7 @@ export default function App() {
         return (
           <Settings
             user={user}
+            token={token}
             onUpdateUser={handleUpdateUser}
             onDeleteAccount={handleDeleteAccount}
             currencySymbol={currencySymbol}

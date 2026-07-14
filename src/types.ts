@@ -14,6 +14,7 @@ export interface User {
   points?: number;
   level?: number;
   achievements?: string[];
+  role?: 'admin' | 'user';
 }
 
 export interface Category {

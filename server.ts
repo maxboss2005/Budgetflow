@@ -146,6 +146,58 @@ app.post('/api/auth/delete', authenticateToken, (req, res) => {
   }
 });
 
+// --- 1.5. Administrative Endpoints (Admin-only) ---
+app.get('/api/admin/users', authenticateToken, (req, res) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Administrative privileges required' });
+    }
+    const users = db.getAllUsers();
+    res.json({ users });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to fetch users' });
+  }
+});
+
+app.post('/api/admin/users/:id/role', authenticateToken, (req, res) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Administrative privileges required' });
+    }
+    const { id } = req.params;
+    const { role } = req.body;
+    if (role !== 'admin' && role !== 'user') {
+      return res.status(400).json({ error: 'Invalid role specified' });
+    }
+    if (id === user.id) {
+      return res.status(400).json({ error: 'You cannot modify your own administrative privileges' });
+    }
+    const updatedUser = db.updateUserRole(id, role);
+    res.json({ user: updatedUser });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to update user role' });
+  }
+});
+
+app.delete('/api/admin/users/:id', authenticateToken, (req, res) => {
+  try {
+    const user = (req as any).user;
+    if (user.role !== 'admin') {
+      return res.status(403).json({ error: 'Administrative privileges required' });
+    }
+    const { id } = req.params;
+    if (id === user.id) {
+      return res.status(400).json({ error: 'You cannot delete your own active administrator account' });
+    }
+    db.deleteUserAccount(id);
+    res.json({ success: true, message: 'User account and financial ledgers successfully purged' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Failed to purge user account' });
+  }
+});
+
 // 2. Financial Ledger Endpoints
 app.get('/api/finance/categories', authenticateToken, (req, res) => {
   const user = (req as any).user;

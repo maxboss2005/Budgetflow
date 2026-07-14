@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Settings as SettingsIcon, 
   User, 
@@ -21,13 +21,16 @@ import {
   Monitor,
   Edit,
   X,
-  Check
+  Check,
+  Users,
+  ShieldAlert
 } from 'lucide-react';
 import { User as UserType, Category } from '../types';
 import { IconResolver } from './Dashboard';
 
 interface SettingsProps {
   user: UserType;
+  token?: string;
   onUpdateUser: (updates: any) => Promise<any>;
   onDeleteAccount: () => void;
   currencySymbol: string;
@@ -41,6 +44,7 @@ interface SettingsProps {
 
 export default function Settings({
   user,
+  token,
   onUpdateUser,
   onDeleteAccount,
   currencySymbol,
@@ -62,19 +66,91 @@ export default function Settings({
   // Custom non-blocking modal confirmation states
   const [confirmTarget, setConfirmTarget] = useState<{ type: string; title: string; desc: string; action: () => void } | null>(null);
 
-  // States for admin panel locker
-  const [isAdminUnlocked, setIsAdminUnlocked] = useState(() => {
-    return sessionStorage.getItem('budgetflow_admin_unlocked') === 'true';
-  });
-  const [adminPassword, setAdminPassword] = useState('');
-  const [adminError, setAdminError] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-
   // States for Category Customization
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editCatName, setEditCatName] = useState('');
   const [editCatColor, setEditCatColor] = useState('');
   const [editCatIcon, setEditCatIcon] = useState('');
+
+  // States for Admin Registered Users list
+  const [adminUsers, setAdminUsers] = useState<UserType[]>([]);
+  const [adminUsersLoading, setAdminUsersLoading] = useState(false);
+  const [adminUsersError, setAdminUsersError] = useState('');
+
+  // Fetch users when component mounts if the active session is an admin
+  const fetchAdminUsers = async () => {
+    if (user.role !== 'admin' || !token) return;
+    setAdminUsersLoading(true);
+    try {
+      const response = await fetch('/api/admin/users', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setAdminUsers(data.users || []);
+        setAdminUsersError('');
+      } else {
+        const errData = await response.json();
+        setAdminUsersError(errData.error || 'Failed to fetch registered users list');
+      }
+    } catch (err) {
+      setAdminUsersError('Offline/Network interruption while loading users list');
+    } finally {
+      setAdminUsersLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (user.role === 'admin' && token) {
+      fetchAdminUsers();
+    }
+  }, [user.role, token]);
+
+  const handleUpdateUserRole = async (targetUserId: string, newRole: 'admin' | 'user') => {
+    if (!token) return;
+    try {
+      const response = await fetch(`/api/admin/users/${targetUserId}/role`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ role: newRole })
+      });
+      if (response.ok) {
+        setSuccessMsg('User administrative role successfully updated.');
+        fetchAdminUsers();
+        setTimeout(() => setSuccessMsg(''), 3000);
+      } else {
+        const errData = await response.json();
+        alert(errData.error || 'Failed to update user role');
+      }
+    } catch (err) {
+      alert('Failed to update user role');
+    }
+  };
+
+  const handleAdminDeleteUser = async (targetUserId: string) => {
+    if (!token) return;
+    try {
+      const response = await fetch(`/api/admin/users/${targetUserId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        setSuccessMsg('User account database successfully purged from systems.');
+        fetchAdminUsers();
+        setTimeout(() => setSuccessMsg(''), 3000);
+      } else {
+        const errData = await response.json();
+        alert(errData.error || 'Failed to delete user account');
+      }
+    } catch (err) {
+      alert('Failed to execute user account delete operation');
+    }
+  };
 
   const startCategoryEdit = (cat: Category) => {
     setEditingCategoryId(cat.id);
@@ -100,17 +176,6 @@ export default function Settings({
       setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err: any) {
       alert(err.message || 'Failed to update category.');
-    }
-  };
-
-  const handleAdminUnlock = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (adminPassword === 'admin') {
-      setIsAdminUnlocked(true);
-      sessionStorage.setItem('budgetflow_admin_unlocked', 'true');
-      setAdminError('');
-    } else {
-      setAdminError('Access denied: invalid password.');
     }
   };
 
@@ -179,10 +244,10 @@ export default function Settings({
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Configure profile thresholds, regional currencies, and local databases.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className={`grid grid-cols-1 ${user.role === 'admin' ? 'lg:grid-cols-3' : ''} gap-6`}>
         
         {/* Profile Card and general settings */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className={`${user.role === 'admin' ? 'lg:col-span-2' : 'w-full'} space-y-6`}>
           
           {/* Profile Form */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm">
@@ -425,32 +490,26 @@ export default function Settings({
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">BudgetFlow is running as a native standalone system application. Performance optimization active.</p>
                 </div>
               </div>
-            ) : isInIframe ? (
-              <div className="space-y-4">
-                {/* IFrame Caution Banner */}
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800/50 space-y-2.5">
-                  <div className="flex items-start gap-2.5">
-                    <Info className="w-4.5 h-4.5 text-blue-500 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <p className="text-xs font-bold text-slate-950 dark:text-slate-50">App Preview Sandbox Active</p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                        PWAs cannot trigger native installation prompts inside sandboxed preview windows. To run BudgetFlow in full standalone mode and install it natively, click the button below to open it in a new tab.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="pt-1">
-                    <button
-                      onClick={() => window.open(window.location.href, '_blank')}
-                      className="w-full py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-300 text-xs font-extrabold border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                    >
-                      <Monitor className="w-4 h-4" />
-                      <span>Open in Standalone Tab</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
             ) : (
               <div className="space-y-4">
+                {/* Non-blocking friendly standalone tip */}
+                {isInIframe && (
+                  <div className="p-3.5 rounded-2xl bg-blue-500/5 border border-blue-500/10 flex items-center justify-between gap-3 text-xs text-slate-600 dark:text-slate-300">
+                    <div className="flex items-start gap-2">
+                      <Info className="w-4.5 h-4.5 text-blue-500 shrink-0 mt-0.5" />
+                      <p className="text-[11px] leading-relaxed">
+                        <strong>Preview Mode Active:</strong> Open BudgetFlow in a standalone window to enable instant 1-click home screen install.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => window.open(window.location.href, '_blank')}
+                      className="px-3 py-1.5 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-300 text-[10px] font-extrabold border border-slate-200 dark:border-slate-800 rounded-lg shrink-0 cursor-pointer"
+                    >
+                      Open Standalone
+                    </button>
+                  </div>
+                )}
+
                 {deferredPrompt ? (
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-blue-500/5 border border-blue-500/10">
                     <div className="space-y-1">
@@ -459,7 +518,7 @@ export default function Settings({
                         <span>150 XP BONUS</span>
                       </span>
                       <p className="text-xs font-bold text-slate-900 dark:text-white">BudgetFlow is installable!</p>
-                      <p className="text-[11px] text-slate-400">Click below to install BudgetFlow as a native app on your home screen or dock.</p>
+                      <p className="text-[11px] text-slate-450">Click below to install BudgetFlow as a native app on your home screen or dock.</p>
                     </div>
                     <button
                       onClick={onInstallApp}
@@ -470,214 +529,251 @@ export default function Settings({
                     </button>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {/* Standalone non-iframe view: friendly install notice */}
-                    <div className="p-4 rounded-2xl bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-                      <p className="font-bold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1">
-                        <Smartphone className="w-4 h-4 shrink-0" />
-                        <span>Install on Your Device</span>
-                      </p>
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                        You can run BudgetFlow as a lightweight native application directly on your phone, tablet, or desktop. Use the easy guides below to add it to your home screen or system dock!
-                      </p>
-                    </div>
-
-                    {/* Step-by-step device guides */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                      <div className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-850/50 bg-slate-50/50 dark:bg-slate-950/20">
-                        <h4 className="text-[11px] font-bold text-slate-950 dark:text-slate-200 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                          <Smartphone className="w-3.5 h-3.5 text-blue-500" />
-                          <span>iOS / iPadOS Safari</span>
-                        </h4>
-                        <ol className="list-decimal pl-4 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
-                          <li>Open this URL in <strong>Safari</strong></li>
-                          <li>Tap the browser <strong>Share</strong> button</li>
-                          <li>Select <strong>Add to Home Screen</strong></li>
-                        </ol>
-                      </div>
-
-                      <div className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-850/50 bg-slate-50/50 dark:bg-slate-950/20">
-                        <h4 className="text-[11px] font-bold text-slate-950 dark:text-slate-200 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                          <Monitor className="w-3.5 h-3.5 text-blue-500" />
-                          <span>Android / Chrome</span>
-                        </h4>
-                        <ol className="list-decimal pl-4 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
-                          <li>Open this URL in <strong>Chrome</strong></li>
-                          <li>Tap the three-dots <strong>Menu</strong></li>
-                          <li>Select <strong>Install App</strong> or <strong>Add to Home screen</strong></li>
-                        </ol>
-                      </div>
-                    </div>
+                  <div className="p-4 rounded-2xl bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                    <p className="font-bold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1">
+                      <Smartphone className="w-4 h-4 shrink-0" />
+                      <span>Install on Your Device</span>
+                    </p>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      You can run BudgetFlow as a lightweight native application directly on your phone, tablet, or desktop. Use the easy step-by-step instructions below!
+                    </p>
                   </div>
                 )}
+
+                {/* Step-by-step device guides (Always visible for multi-platform support) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-850/50 bg-slate-50/50 dark:bg-slate-950/20">
+                    <h4 className="text-[11px] font-bold text-slate-950 dark:text-slate-200 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Smartphone className="w-3.5 h-3.5 text-blue-500" />
+                      <span>iOS / iPadOS Safari</span>
+                    </h4>
+                    <ol className="list-decimal pl-4 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+                      <li>Open this URL in <strong>Safari</strong> browser</li>
+                      <li>Tap the browser <strong>Share</strong> icon</li>
+                      <li>Select <strong>Add to Home Screen</strong> option</li>
+                    </ol>
+                  </div>
+
+                  <div className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-850/50 bg-slate-50/50 dark:bg-slate-950/20">
+                    <h4 className="text-[11px] font-bold text-slate-950 dark:text-slate-200 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                      <Monitor className="w-3.5 h-3.5 text-blue-500" />
+                      <span>Android / Chrome</span>
+                    </h4>
+                    <ol className="list-decimal pl-4 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+                      <li>Open this URL in <strong>Chrome</strong> browser</li>
+                      <li>Tap the three-dots <strong>Menu</strong></li>
+                      <li>Select <strong>Install App</strong> or <strong>Add to Home screen</strong></li>
+                    </ol>
+                  </div>
+                </div>
               </div>
             )}
           </div>
 
         </div>
 
-        {/* Informative Walkthroughs & Credentials guides */}
-        <div className="space-y-6">
-          {!isAdminUnlocked ? (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-4 text-center py-10 relative overflow-hidden">
-              <div className="absolute top-0 inset-x-0 h-1.5 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
-              <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-950/50 flex items-center justify-center text-blue-600 dark:text-blue-400 mx-auto mb-4">
-                <Lock className="w-6 h-6" />
+        {/* Informative Walkthroughs & Credentials guides (Only visible to authenticated administrators) */}
+        {user.role === 'admin' && (
+          <div className="space-y-6">
+            {/* Active Admin Workspace Banner */}
+            <div className="flex items-center justify-between bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/10 rounded-2xl px-4 py-3 text-xs text-emerald-600 dark:text-emerald-400 font-bold shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                <span>Active Administrator Workspace</span>
               </div>
-              <h3 className="text-sm font-bold text-slate-900 dark:text-white">Admin Credentials Required</h3>
-              <p className="text-xs text-slate-400 max-w-xs mx-auto leading-relaxed">
-                Access to the intelligence platform setup, live telemetry, and risk maintenance tools requires administrative clearance.
-              </p>
-              
-              <form onSubmit={handleAdminUnlock} className="space-y-3 pt-2 max-w-xs mx-auto">
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="Enter Admin Password"
-                    value={adminPassword}
-                    onChange={(e) => {
-                      setAdminPassword(e.target.value);
-                      setAdminError('');
-                    }}
-                    className="w-full pl-3 pr-10 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 text-center font-mono placeholder:font-sans"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                  >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                  </button>
-                </div>
-                {adminError && <p className="text-[11px] text-red-500 font-semibold">{adminError}</p>}
-                <button
-                  type="submit"
-                  className="w-full py-2 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 active:scale-98 rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
-                >
-                  <Unlock className="w-3.5 h-3.5" />
-                  <span>Authenticate Access</span>
-                </button>
-                <p className="text-[10px] text-slate-400 mt-2 font-mono bg-slate-50 dark:bg-slate-950/50 py-1 rounded-lg">
-                  Default Hint: <span className="font-bold text-blue-500">admin</span>
-                </p>
-              </form>
+              <span className="text-[9px] uppercase tracking-wider bg-emerald-500/10 px-2 py-0.5 rounded-full font-extrabold text-emerald-600 dark:text-emerald-400">
+                Secure Session
+              </span>
             </div>
-          ) : (
-            <>
-              {/* Unlock Banner */}
-              <div className="flex items-center justify-between bg-emerald-500/5 dark:bg-emerald-500/10 border border-emerald-500/10 rounded-2xl px-4 py-2.5 text-xs text-emerald-600 dark:text-emerald-400 font-bold">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span>Admin Mode Active</span>
+
+            {/* Registered Users Management database card */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-4 animate-fade-in">
+              <div className="flex items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800/40 pb-3">
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Users className="w-4 h-4 text-blue-500" />
+                  <span>Registered Users ({adminUsers.length})</span>
+                </h3>
+                <button
+                  onClick={fetchAdminUsers}
+                  disabled={adminUsersLoading}
+                  className="p-1.5 rounded-lg bg-slate-50 dark:bg-slate-950 hover:bg-slate-100 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-blue-500 transition-all cursor-pointer disabled:opacity-50"
+                  title="Force refresh database logs"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${adminUsersLoading ? 'animate-spin text-blue-500' : ''}`} />
+                </button>
+              </div>
+
+              {adminUsersLoading && adminUsers.length === 0 ? (
+                <div className="py-8 text-center text-xs text-slate-400 animate-pulse flex items-center justify-center gap-2">
+                  <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+                  <span>Synchronizing database catalog...</span>
                 </div>
+              ) : adminUsersError ? (
+                <div className="p-4 rounded-xl bg-red-500/5 border border-red-500/10 text-center space-y-2">
+                  <ShieldAlert className="w-6 h-6 text-red-500 mx-auto" />
+                  <p className="text-xs text-red-500 font-semibold">{adminUsersError}</p>
+                </div>
+              ) : (
+                <div className="space-y-3.5 max-h-[380px] overflow-y-auto pr-1">
+                  {adminUsers.map((u) => {
+                    const isSelf = u.id === user.id;
+                    return (
+                      <div 
+                        key={u.id} 
+                        className={`p-3.5 rounded-2xl border transition-all ${isSelf ? 'border-blue-500/20 bg-blue-500/5' : 'border-slate-100 dark:border-slate-850 bg-slate-50/50 dark:bg-slate-950/20 hover:border-slate-200 dark:hover:border-slate-800'}`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="space-y-1 min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold text-slate-900 dark:text-white truncate leading-none">
+                                {u.name}
+                              </span>
+                              {isSelf && (
+                                <span className="text-[8px] bg-blue-500/10 text-blue-600 font-extrabold px-1.5 py-0.5 rounded-full uppercase shrink-0">
+                                  YOU
+                                </span>
+                              )}
+                              <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded-full uppercase shrink-0 ${u.role === 'admin' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-400'}`}>
+                                {u.role || 'user'}
+                              </span>
+                            </div>
+                            <p className="text-[10px] font-mono text-slate-400 break-all leading-tight">{u.email}</p>
+                            <p className="text-[9px] text-slate-400 dark:text-slate-500">
+                              Registered: {u.createdAt ? new Date(u.createdAt).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : 'N/A'}
+                            </p>
+                          </div>
+
+                          {/* Action panel triggers */}
+                          {!isSelf && (
+                            <div className="flex items-center gap-1 shrink-0">
+                              <button
+                                onClick={() => handleUpdateUserRole(u.id, u.role === 'admin' ? 'user' : 'admin')}
+                                title={`Toggle administrative clearance to ${u.role === 'admin' ? 'Regular User' : 'Administrator'}`}
+                                className="p-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-250 dark:border-slate-800 text-slate-400 hover:text-blue-500 hover:border-blue-500/20 transition-all cursor-pointer shadow-xs active:scale-90"
+                              >
+                                <Edit className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setConfirmTarget({
+                                    type: 'admin_delete_user',
+                                    title: 'Purge User Account Record',
+                                    desc: `CRITICAL SECURITY OVERWRITE: Are you sure you want to permanently erase the user account and erase all financial transaction databases associated with "${u.name}" (${u.email})? This action cannot be revoked.`,
+                                    action: () => handleAdminDeleteUser(u.id)
+                                  });
+                                }}
+                                title="Erase user data catalog"
+                                className="p-1.5 rounded-lg bg-red-500/5 hover:bg-red-500/10 border border-red-500/15 text-red-500 hover:text-red-600 transition-all cursor-pointer active:scale-90"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {adminUsers.length === 0 && (
+                    <p className="text-xs text-slate-400 text-center py-6">No users cataloged on this database cluster.</p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Credentials Guide */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-4 animate-fade-in">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Key className="w-4 h-4 text-purple-500" />
+                <span>Intelligence Platform Setup</span>
+              </h3>
+
+              <div className="p-3.5 rounded-2xl bg-purple-500/5 border border-purple-500/10 text-xs text-slate-600 dark:text-slate-300 space-y-2 leading-relaxed">
+                <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-bold">
+                  <Sparkles className="w-4 h-4 text-purple-500 animate-bounce" />
+                  <span>How is Gemini configured?</span>
+                </div>
+                <p>BudgetFlow triggers the Google Gemini SDK completely <strong>server-side</strong> to protect API secrets.</p>
+                <p>The system utilizes the <strong>GEMINI_API_KEY</strong> environment variable declared inside your workspace secrets manager.</p>
+                <div className="pt-1.5 text-[10px] font-bold text-slate-400 uppercase">Configuration Checklist:</div>
+                <ol className="list-decimal pl-4 text-[11px] text-slate-500 space-y-1">
+                  <li>Open the <strong>Settings Menu</strong> in AI Studio UI</li>
+                  <li>Navigate to the <strong>Secrets panel</strong></li>
+                  <li>Assign your API key to <strong>GEMINI_API_KEY</strong></li>
+                </ol>
+              </div>
+            </div>
+
+            {/* Infrastructure status logs card */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-4 animate-fade-in">
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                <Database className="w-4 h-4 text-blue-500" />
+                <span>Infrastructure telemetry</span>
+              </h3>
+
+              <div className="space-y-2 font-mono text-[10px] text-slate-400">
+                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/40 pb-1.5">
+                  <span>LOCAL DATABASE:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">IndexedDB v1</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/40 pb-1.5">
+                  <span>OFFLINE CACHE:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">PWA SW Cache</span>
+                </div>
+                <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/40 pb-1.5">
+                  <span>SERVER ENGINE:</span>
+                  <span className="font-bold text-slate-800 dark:text-slate-200">Node/Express v4</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>REPLICATED ENGINE:</span>
+                  <span className="font-bold text-emerald-500">READY</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Danger zone card */}
+            <div className="bg-white dark:bg-slate-900 border border-red-500/20 rounded-3xl p-6 shadow-sm space-y-4 relative overflow-hidden animate-fade-in">
+              <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-xl pointer-events-none"></div>
+              
+              <h3 className="text-sm font-bold text-red-500 flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                <span>High-Risk Maintenance</span>
+              </h3>
+
+              <div className="space-y-3">
+                <button
+                  onClick={handleIndexedDBReset}
+                  className="w-full text-left px-3.5 py-2.5 rounded-2xl bg-red-500/5 hover:bg-red-500/10 border border-red-500/15 text-red-600 text-xs font-bold transition-all cursor-pointer flex items-center justify-between"
+                >
+                  <div>
+                    <p>Reset local client cache</p>
+                    <p className="text-[10px] font-normal text-slate-400 mt-0.5 font-sans">Clear IndexedDB and refresh browser</p>
+                  </div>
+                  <Database className="w-4 h-4" />
+                </button>
+
                 <button
                   onClick={() => {
-                    setIsAdminUnlocked(false);
-                    setAdminPassword('');
-                    sessionStorage.removeItem('budgetflow_admin_unlocked');
+                    setConfirmTarget({
+                      type: 'purge_account',
+                      title: 'Purge Account Databases',
+                      desc: 'CRITICAL ALERT: Are you sure you want to permanently delete your user account? This will wipe your financial databases on the cloud. This action is irreversible.',
+                      action: () => {
+                        onDeleteAccount();
+                      }
+                    });
                   }}
-                  className="px-2 py-1 bg-white dark:bg-slate-950 hover:bg-slate-50 dark:hover:bg-slate-900 border border-slate-200 dark:border-slate-800 text-[10px] rounded-lg transition-all cursor-pointer flex items-center gap-1 text-slate-700 dark:text-slate-300 shadow-sm"
+                  className="w-full text-left px-3.5 py-2.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-between shadow-sm shadow-red-600/15"
                 >
-                  <Lock className="w-3 h-3 text-red-500" />
-                  <span>Lock Panel</span>
+                  <div>
+                    <p>Purge account databases</p>
+                    <p className="text-[10px] font-normal text-red-100/80 mt-0.5 font-sans">Irreversible erase of user and ledgers</p>
+                  </div>
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
-
-              {/* Credentials Guide */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-4 animate-fade-in">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Key className="w-4 h-4 text-purple-500" />
-                  <span>Intelligence Platform Setup</span>
-                </h3>
-
-                <div className="p-3.5 rounded-2xl bg-purple-500/5 border border-purple-500/10 text-xs text-slate-600 dark:text-slate-300 space-y-2 leading-relaxed">
-                  <div className="flex items-center gap-1.5 text-purple-600 dark:text-purple-400 font-bold">
-                    <Sparkles className="w-4 h-4 text-purple-500 animate-bounce" />
-                    <span>How is Gemini configured?</span>
-                  </div>
-                  <p>BudgetFlow triggers the Google Gemini SDK completely <strong>server-side</strong> to protect API secrets.</p>
-                  <p>The system utilizes the <strong>GEMINI_API_KEY</strong> environment variable declared inside your workspace secrets manager.</p>
-                  <div className="pt-1.5 text-[10px] font-bold text-slate-400 uppercase">Configuration Checklist:</div>
-                  <ol className="list-decimal pl-4 text-[11px] text-slate-500 space-y-1">
-                    <li>Open the <strong>Settings Menu</strong> in AI Studio UI</li>
-                    <li>Navigate to the <strong>Secrets panel</strong></li>
-                    <li>Assign your API key to <strong>GEMINI_API_KEY</strong></li>
-                  </ol>
-                </div>
-              </div>
-
-              {/* Infrastructure status logs card */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm space-y-4 animate-fade-in">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Database className="w-4 h-4 text-blue-500" />
-                  <span>Infrastructure telemetry</span>
-                </h3>
-
-                <div className="space-y-2 font-mono text-[10px] text-slate-400">
-                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/40 pb-1.5">
-                    <span>LOCAL DATABASE:</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">IndexedDB v1</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/40 pb-1.5">
-                    <span>OFFLINE CACHE:</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">PWA SW Cache</span>
-                  </div>
-                  <div className="flex justify-between border-b border-slate-100 dark:border-slate-800/40 pb-1.5">
-                    <span>SERVER ENGINE:</span>
-                    <span className="font-bold text-slate-800 dark:text-slate-200">Node/Express v4</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>REPLICATED ENGINE:</span>
-                    <span className="font-bold text-emerald-500">READY</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Danger zone card */}
-              <div className="bg-white dark:bg-slate-900 border border-red-500/20 rounded-3xl p-6 shadow-sm space-y-4 relative overflow-hidden animate-fade-in">
-                <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-xl pointer-events-none"></div>
-                
-                <h3 className="text-sm font-bold text-red-500 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" />
-                  <span>High-Risk Maintenance</span>
-                </h3>
-
-                <div className="space-y-3">
-                  <button
-                    onClick={handleIndexedDBReset}
-                    className="w-full text-left px-3.5 py-2.5 rounded-2xl bg-red-500/5 hover:bg-red-500/10 border border-red-500/15 text-red-600 text-xs font-bold transition-all cursor-pointer flex items-center justify-between"
-                  >
-                    <div>
-                      <p>Reset local client cache</p>
-                      <p className="text-[10px] font-normal text-slate-400 mt-0.5 font-sans">Clear IndexedDB and refresh browser</p>
-                    </div>
-                    <Database className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setConfirmTarget({
-                        type: 'purge_account',
-                        title: 'Purge Account Databases',
-                        desc: 'CRITICAL ALERT: Are you sure you want to permanently delete your user account? This will wipe your financial databases on the cloud. This action is irreversible.',
-                        action: () => {
-                          onDeleteAccount();
-                        }
-                      });
-                    }}
-                    className="w-full text-left px-3.5 py-2.5 rounded-2xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-between shadow-sm shadow-red-600/15"
-                  >
-                    <div>
-                      <p>Purge account databases</p>
-                      <p className="text-[10px] font-normal text-red-100/80 mt-0.5 font-sans">Irreversible erase of user and ledgers</p>
-                    </div>
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+            </div>
+          </div>
+        )}
 
       </div>
 

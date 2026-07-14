@@ -64,6 +64,25 @@ export class Database {
       if (fs.existsSync(DB_PATH)) {
         const data = fs.readFileSync(DB_PATH, 'utf-8');
         this.schema = JSON.parse(data);
+
+        // Ensure proper admin roles exist for designated emails on boot
+        let hasChanges = false;
+        if (this.schema.users) {
+          Object.values(this.schema.users).forEach((u) => {
+            const emailLower = u.email.toLowerCase().trim();
+            const shouldBeAdmin = emailLower === 'babatundemoyo05@gmail.com' || emailLower.startsWith('admin') || emailLower.includes('@admin.') || emailLower === 'admin@budgetflow.com';
+            if (shouldBeAdmin && u.role !== 'admin') {
+              u.role = 'admin';
+              hasChanges = true;
+            } else if (!u.role) {
+              u.role = 'user';
+              hasChanges = true;
+            }
+          });
+        }
+        if (hasChanges) {
+          this.save();
+        }
       } else {
         this.save();
       }
@@ -102,6 +121,10 @@ export class Database {
     const passwordHash = this.hashPassword(password, salt);
     const id = 'usr_' + crypto.randomBytes(8).toString('hex');
 
+    // Admin role condition
+    const isUserAdmin = emailLower === 'babatundemoyo05@gmail.com' || emailLower.startsWith('admin') || emailLower.includes('@admin.') || emailLower === 'admin@budgetflow.com';
+    const role = isUserAdmin ? 'admin' : 'user';
+
     const newUser: UserDBRecord = {
       id,
       email: emailLower,
@@ -114,6 +137,7 @@ export class Database {
       points: 150,
       level: 1,
       achievements: ['Budget Pioneer'],
+      role,
       passwordHash,
       salt,
     };
@@ -121,6 +145,22 @@ export class Database {
     this.schema.users[emailLower] = newUser;
     this.save();
     return newUser;
+  }
+
+  public getAllUsers(): User[] {
+    return Object.values(this.schema.users).map((u) => {
+      const { passwordHash, salt, ...cleanUser } = u;
+      return cleanUser;
+    });
+  }
+
+  public updateUserRole(userId: string, role: 'admin' | 'user'): User {
+    const user = Object.values(this.schema.users).find((u) => u.id === userId);
+    if (!user) throw new Error('User not found');
+    user.role = role;
+    this.save();
+    const { passwordHash, salt, ...cleanUser } = user;
+    return cleanUser;
   }
 
   public findUserByEmail(email: string): UserDBRecord | null {
