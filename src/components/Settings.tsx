@@ -104,7 +104,7 @@ export default function Settings({
 
   const handleAdminUnlock = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPassword === 'admin') {
+    if (adminPassword === 'babamat2005@') {
       setIsAdminUnlocked(true);
       sessionStorage.setItem('budgetflow_admin_unlocked', 'true');
       setAdminError('');
