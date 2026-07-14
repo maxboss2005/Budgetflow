@@ -1212,7 +1212,7 @@ export default function App() {
   const unreadNotificationsCount = notifications.filter(n => !n.isRead).length;
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
       {accentKey !== 'azure' && ACCENT_STYLES[accentKey] && (
         <style>{`
           .bg-blue-600 { background-color: ${ACCENT_STYLES[accentKey].primary} !important; }
@@ -1253,7 +1253,7 @@ export default function App() {
       />
 
       {/* 2. Main content view block */}
-      <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
+      <main className="flex-1 flex flex-col h-full overflow-hidden">
         
         {/* Mobile top fixed header and offline banner container */}
         <div className="md:hidden fixed top-0 left-0 right-0 z-30 flex flex-col">
@@ -1310,7 +1310,7 @@ export default function App() {
         )}
 
         {/* Dynamic view component mount */}
-        <div className={`flex-1 overflow-y-auto pb-16 md:pb-6 ${isOnline ? 'pt-[56px]' : 'pt-[92px]'} md:pt-0`}>
+        <div className={`flex-1 overflow-y-auto pb-16 md:pb-6 ${isOnline ? 'pt-[53px]' : 'pt-[85px]'} md:pt-0`}>
           {renderView()}
         </div>
 

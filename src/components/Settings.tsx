@@ -53,6 +53,7 @@ export default function Settings({
 }: SettingsProps) {
 
   // States
+  const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
   const [name, setName] = useState(user.name);
   const [updating, setUpdating] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
@@ -104,7 +105,7 @@ export default function Settings({
 
   const handleAdminUnlock = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPassword === 'babamat2005@') {
+    if (adminPassword === 'admin') {
       setIsAdminUnlocked(true);
       sessionStorage.setItem('budgetflow_admin_unlocked', 'true');
       setAdminError('');
@@ -424,6 +425,30 @@ export default function Settings({
                   <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">BudgetFlow is running as a native standalone system application. Performance optimization active.</p>
                 </div>
               </div>
+            ) : isInIframe ? (
+              <div className="space-y-4">
+                {/* IFrame Caution Banner */}
+                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800/50 space-y-2.5">
+                  <div className="flex items-start gap-2.5">
+                    <Info className="w-4.5 h-4.5 text-blue-500 shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-slate-950 dark:text-slate-50">App Preview Sandbox Active</p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                        PWAs cannot trigger native installation prompts inside sandboxed preview windows. To run BudgetFlow in full standalone mode and install it natively, click the button below to open it in a new tab.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-1">
+                    <button
+                      onClick={() => window.open(window.location.href, '_blank')}
+                      className="w-full py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-300 text-xs font-extrabold border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                    >
+                      <Monitor className="w-4 h-4" />
+                      <span>Open in Standalone Tab</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
             ) : (
               <div className="space-y-4">
                 {deferredPrompt ? (
@@ -433,8 +458,8 @@ export default function Settings({
                         <Sparkles className="w-3 h-3 text-amber-500" />
                         <span>150 XP BONUS</span>
                       </span>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">Native installer package is ready!</p>
-                      <p className="text-[11px] text-slate-400">Click install to run BudgetFlow natively and earn bonus XP.</p>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">BudgetFlow is installable!</p>
+                      <p className="text-[11px] text-slate-400">Click below to install BudgetFlow as a native app on your home screen or dock.</p>
                     </div>
                     <button
                       onClick={onInstallApp}
@@ -446,26 +471,15 @@ export default function Settings({
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {/* IFrame Caution Banner */}
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800/50 space-y-2.5">
-                      <div className="flex items-start gap-2.5">
-                        <Info className="w-4.5 h-4.5 text-blue-500 shrink-0 mt-0.5" />
-                        <div className="space-y-1">
-                          <p className="text-xs font-bold text-slate-950 dark:text-slate-50">Browser Sandbox Detected</p>
-                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                            PWAs cannot trigger custom install prompts inside sandboxed preview iframes. To install this app natively on your computer or phone, please open the standalone app in a new tab.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="pt-1">
-                        <button
-                          onClick={() => window.open(window.location.href, '_blank')}
-                          className="w-full py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-300 text-xs font-extrabold border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
-                        >
-                          <Monitor className="w-4 h-4" />
-                          <span>Open in Standalone Tab</span>
-                        </button>
-                      </div>
+                    {/* Standalone non-iframe view: friendly install notice */}
+                    <div className="p-4 rounded-2xl bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+                      <p className="font-bold text-blue-600 dark:text-blue-400 mb-1 flex items-center gap-1">
+                        <Smartphone className="w-4 h-4 shrink-0" />
+                        <span>Install on Your Device</span>
+                      </p>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        You can run BudgetFlow as a lightweight native application directly on your phone, tablet, or desktop. Use the easy guides below to add it to your home screen or system dock!
+                      </p>
                     </div>
 
                     {/* Step-by-step device guides */}
@@ -476,21 +490,21 @@ export default function Settings({
                           <span>iOS / iPadOS Safari</span>
                         </h4>
                         <ol className="list-decimal pl-4 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
-                          <li>Open app link in <strong>Safari</strong></li>
-                          <li>Tap the <strong>Share</strong> icon (box with up arrow)</li>
-                          <li>Choose <strong>Add to Home Screen</strong></li>
+                          <li>Open this URL in <strong>Safari</strong></li>
+                          <li>Tap the browser <strong>Share</strong> button</li>
+                          <li>Select <strong>Add to Home Screen</strong></li>
                         </ol>
                       </div>
 
                       <div className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-850/50 bg-slate-50/50 dark:bg-slate-950/20">
                         <h4 className="text-[11px] font-bold text-slate-950 dark:text-slate-200 uppercase tracking-wider mb-2 flex items-center gap-1.5">
                           <Monitor className="w-3.5 h-3.5 text-blue-500" />
-                          <span>Chrome / Edge / Opera</span>
+                          <span>Android / Chrome</span>
                         </h4>
                         <ol className="list-decimal pl-4 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
-                          <li>Open app in a new tab</li>
-                          <li>Click the <strong>Install</strong> icon in the address bar</li>
-                          <li>Or open browser menu & select <strong>Install App</strong></li>
+                          <li>Open this URL in <strong>Chrome</strong></li>
+                          <li>Tap the three-dots <strong>Menu</strong></li>
+                          <li>Select <strong>Install App</strong> or <strong>Add to Home screen</strong></li>
                         </ol>
                       </div>
                     </div>

@@ -216,8 +216,8 @@ export default function Reports({
         </div>
 
         {filteredTransactions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0">
+            <table className="w-full text-left border-collapse min-w-[550px] sm:min-w-0">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-800/60 pb-3">
                   <th className="pb-3 text-xs font-semibold text-slate-400 uppercase tracking-wider">Date</th>
@@ -230,20 +230,20 @@ export default function Reports({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800/40">
                 {filteredTransactions.map((t, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-950/25 transition-colors">
-                    <td className="py-3 text-xs text-slate-500 dark:text-slate-400 font-mono">{t.date}</td>
+                    <td className="py-3 text-xs text-slate-500 dark:text-slate-400 font-mono whitespace-nowrap">{t.date}</td>
                     <td className="py-3 text-xs font-bold text-slate-900 dark:text-white truncate max-w-[150px] sm:max-w-[200px]">
                       {t.notes || (t.type === 'income' ? 'Direct Deposit' : 'Retail Outflow')}
                     </td>
-                    <td className="py-3 text-xs font-medium text-slate-600 dark:text-slate-400">
+                    <td className="py-3 text-xs font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
                       <div className="inline-flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: t.categoryColor }}></span>
+                        <span className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: t.categoryColor }}></span>
                         <span>{t.categoryName || 'Unknown'}</span>
                       </div>
                     </td>
-                    <td className="py-3 text-xs text-slate-400 hidden sm:table-cell">
+                    <td className="py-3 text-xs text-slate-400 hidden sm:table-cell whitespace-nowrap">
                       {t.isRecurring ? `Recurring (${t.recurrenceRule})` : 'Single Settlement'}
                     </td>
-                    <td className={`py-3 text-xs font-bold font-mono text-right ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-800 dark:text-slate-200'}`}>
+                    <td className={`py-3 text-xs font-bold font-mono text-right whitespace-nowrap ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-800 dark:text-slate-200'}`}>
                       {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                     </td>
                   </tr>

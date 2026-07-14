@@ -471,18 +471,24 @@ export default function Rewards({
                 {/* Display Graph & Metrics */}
                 <div className="lg:col-span-2 space-y-6">
                   {/* Summary row */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-850">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Capital Paid</span>
-                      <span className="text-lg font-black text-slate-800 dark:text-white font-mono block mt-1">{formatCurrency(finalSimInvested)}</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+                    <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-850 min-w-0">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate" title="Total Capital Paid">Total Capital Paid</span>
+                      <span className="text-base xs:text-lg sm:text-xs md:text-sm lg:text-base xl:text-lg font-black text-slate-800 dark:text-white font-mono block mt-1 truncate" title={formatCurrency(finalSimInvested)}>
+                        {formatCurrency(finalSimInvested)}
+                      </span>
                     </div>
-                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-850">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Compounded Interest</span>
-                      <span className="text-lg font-black text-emerald-500 font-mono block mt-1">+{formatCurrency(finalSimInterest)}</span>
+                    <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-850 min-w-0">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate" title="Compounded Interest">Compounded Interest</span>
+                      <span className="text-base xs:text-lg sm:text-xs md:text-sm lg:text-base xl:text-lg font-black text-emerald-500 font-mono block mt-1 truncate" title={`+${formatCurrency(finalSimInterest)}`}>
+                        +{formatCurrency(finalSimInterest)}
+                      </span>
                     </div>
-                    <div className="p-4 rounded-2xl bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20">
-                      <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400 uppercase tracking-wider block">Total Future Worth</span>
-                      <span className="text-lg font-black text-blue-600 dark:text-blue-400 font-mono block mt-1">{formatCurrency(finalSimBalance)}</span>
+                    <div className="p-3.5 sm:p-4 rounded-2xl bg-blue-500/5 dark:bg-blue-500/10 border border-blue-500/20 min-w-0">
+                      <span className="text-[10px] font-bold text-blue-500 dark:text-blue-400 uppercase tracking-wider block truncate" title="Total Future Worth">Total Future Worth</span>
+                      <span className="text-base xs:text-lg sm:text-xs md:text-sm lg:text-base xl:text-lg font-black text-blue-600 dark:text-blue-400 font-mono block mt-1 truncate" title={formatCurrency(finalSimBalance)}>
+                        {formatCurrency(finalSimBalance)}
+                      </span>
                     </div>
                   </div>
 
@@ -645,8 +651,8 @@ export default function Rewards({
                 </div>
 
                 {subscriptions.length > 0 ? (
-                  <div className="border border-slate-150 dark:border-slate-850 rounded-2xl overflow-x-auto">
-                    <table className="w-full text-xs text-left">
+                  <div className="border border-slate-150 dark:border-slate-850 rounded-2xl overflow-x-auto -mx-6 px-6 sm:mx-0 sm:px-0">
+                    <table className="w-full text-xs text-left min-w-[550px] sm:min-w-0">
                       <thead>
                         <tr className="bg-slate-50/50 dark:bg-slate-950/40 border-b border-slate-150 dark:border-slate-850 text-slate-400 font-bold">
                           <th className="p-3">Subscription</th>
@@ -658,15 +664,15 @@ export default function Rewards({
                       <tbody className="divide-y divide-slate-150 dark:divide-slate-850">
                         {subAuditRows.map(row => (
                           <tr key={row.id} className="hover:bg-slate-50/20 dark:hover:bg-slate-900/40 transition-colors">
-                            <td className="p-3 font-semibold text-slate-800 dark:text-slate-200">{row.name}</td>
-                            <td className="p-3 font-mono font-bold">{formatCurrency(row.monthlyCost)}</td>
-                            <td className="p-3">
+                            <td className="p-3 font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">{row.name}</td>
+                            <td className="p-3 font-mono font-bold whitespace-nowrap">{formatCurrency(row.monthlyCost)}</td>
+                            <td className="p-3 whitespace-nowrap">
                               <span className="inline-flex items-center gap-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold px-2 py-0.5 rounded-md font-mono text-[10px]">
                                 <Clock className="w-3 h-3" />
                                 {row.hoursLabor.toFixed(1)} hrs work
                               </span>
                             </td>
-                            <td className="p-3 text-right">
+                            <td className="p-3 text-right whitespace-nowrap">
                               <div className="inline-flex gap-1.5 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-250/20">
                                 <button
                                   onClick={() => handlePriorityChange(row.id, 'crucial')}

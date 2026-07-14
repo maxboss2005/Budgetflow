@@ -487,7 +487,7 @@ export default function Subscriptions({
                 <div 
                   key={sub.id} 
                   className={`
-                    p-5 rounded-3xl border flex items-start gap-4 justify-between transition-all relative overflow-hidden
+                    p-5 rounded-3xl border flex flex-col sm:flex-row items-stretch sm:items-start gap-4 justify-between transition-all relative overflow-hidden
                     ${isCancelled 
                       ? 'border-slate-200 bg-slate-50/30 dark:border-slate-800 dark:bg-slate-950/20 opacity-60' 
                       : 'border-slate-200/60 dark:border-slate-800 bg-white dark:bg-slate-900 hover:shadow-md'}
@@ -499,10 +499,10 @@ export default function Subscriptions({
                       <Calendar className="w-5 h-5" />
                     </div>
 
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-bold text-slate-900 dark:text-white">{sub.name}</h4>
-                        <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${isCancelled ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/20'}`}>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">{sub.name}</h4>
+                        <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full whitespace-nowrap ${isCancelled ? 'bg-slate-100 text-slate-500' : 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/20'}`}>
                           {sub.status}
                         </span>
                       </div>
@@ -512,11 +512,11 @@ export default function Subscriptions({
                       </p>
 
                       {sub.notes && (
-                        <p className="text-xs text-slate-500 mt-2 italic">"{sub.notes}"</p>
+                        <p className="text-xs text-slate-500 mt-2 italic line-clamp-2">"{sub.notes}"</p>
                       )}
 
                       {!isCancelled && daysLeft >= 0 && (
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-purple-500 uppercase mt-3 tracking-wider">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-purple-500 uppercase mt-3 tracking-wider whitespace-nowrap">
                           <Clock className="w-3.5 h-3.5" />
                           <span>Renewal triggers in {daysLeft} days</span>
                         </div>
@@ -525,9 +525,9 @@ export default function Subscriptions({
                   </div>
 
                   {/* Actions Panel */}
-                  <div className="text-right flex flex-col justify-between h-full space-y-4">
-                    <div>
-                      <h3 className="text-base font-bold text-slate-900 dark:text-white font-mono">{formatCurrency(sub.amount)}</h3>
+                  <div className="text-left sm:text-right flex flex-row sm:flex-col justify-between sm:justify-between items-center sm:items-end w-full sm:w-auto h-full space-y-0 sm:space-y-4 pt-4 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800/40">
+                    <div className="text-left sm:text-right">
+                      <h3 className="text-base font-bold text-slate-900 dark:text-white font-mono whitespace-nowrap">{formatCurrency(sub.amount)}</h3>
                       <span className="text-[10px] text-slate-400 capitalize">{sub.billingCycle}</span>
                     </div>
 

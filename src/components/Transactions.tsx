@@ -362,8 +362,8 @@ export default function Transactions({
         )}
 
         {paginatedTransactions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+            <table className="w-full text-left border-collapse min-w-[640px] sm:min-w-0">
               <thead>
                 <tr className="border-b border-slate-100 dark:border-slate-800/50">
                   <th className="pb-3.5 pl-2 w-10">
@@ -431,27 +431,27 @@ export default function Transactions({
                     </td>
 
                     {/* Category Label */}
-                    <td className="py-4">
+                    <td className="py-4 whitespace-nowrap">
                       <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-bold border" style={{ borderColor: `${t.categoryColor}30`, backgroundColor: `${t.categoryColor}10`, color: t.categoryColor }}>
                         <IconResolver name={t.categoryIcon || 'HelpCircle'} className="w-3 h-3" />
-                        <span>{t.categoryName || 'Unknown'}</span>
+                        <span className="truncate max-w-[120px]">{t.categoryName || 'Unknown'}</span>
                       </div>
                     </td>
 
                     {/* Recurrence Period */}
                     <td className="py-4 hidden md:table-cell text-xs text-slate-500 font-medium">
                       {t.isRecurring ? (
-                        <div className="flex items-center gap-1.5 text-purple-500">
+                        <div className="flex items-center gap-1.5 text-purple-500 whitespace-nowrap">
                           <Clock className="w-3.5 h-3.5" />
                           <span className="capitalize">{t.recurrenceRule} cycle</span>
                         </div>
                       ) : (
-                        <span className="text-slate-400">Single Transfer</span>
+                        <span className="text-slate-400 whitespace-nowrap">Single Transfer</span>
                       )}
                     </td>
 
                     {/* Receipt image thumbnail check */}
-                    <td className="py-4 hidden sm:table-cell">
+                    <td className="py-4 hidden sm:table-cell whitespace-nowrap">
                       {t.receiptUrl ? (
                         <div className="relative group/thumb">
                           <img 
@@ -470,14 +470,14 @@ export default function Transactions({
                     </td>
 
                     {/* Amount */}
-                    <td className="py-4 text-right">
+                    <td className="py-4 text-right whitespace-nowrap">
                       <span className={`text-xs font-bold font-mono ${t.type === 'income' ? 'text-emerald-500' : 'text-slate-800 dark:text-slate-200'}`}>
                         {t.type === 'income' ? '+' : '-'}{formatCurrency(t.amount)}
                       </span>
                     </td>
 
                     {/* Actions panel */}
-                    <td className="py-4 text-right pr-2">
+                    <td className="py-4 text-right pr-2 whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         <button 
                           onClick={() => openEditModal(t)}
