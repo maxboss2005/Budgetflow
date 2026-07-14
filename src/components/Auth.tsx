@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Wallet, ArrowRight, ShieldCheck, Landmark, Sparkles, Check } from 'lucide-react';
+import { Mail, Lock, User, Wallet, ArrowRight, ShieldCheck, Landmark, Sparkles, Check, Eye, EyeOff, X } from 'lucide-react';
 
 interface AuthProps {
   onAuthSuccess: (user: any, token: string) => void;
 }
+
+const requirements = [
+  { id: 'length', text: 'At least 8 characters', test: (pw: string) => pw.length >= 8 },
+  { id: 'uppercase', text: 'At least one uppercase letter (A-Z)', test: (pw: string) => /[A-Z]/.test(pw) },
+  { id: 'lowercase', text: 'At least one lowercase letter (a-z)', test: (pw: string) => /[a-z]/.test(pw) },
+  { id: 'number', text: 'At least one number (0-9)', test: (pw: string) => /[0-9]/.test(pw) },
+  { id: 'special', text: 'At least one special character (!@#$%^&*)', test: (pw: string) => /[!@#$%^&*(),.?":{}|<>]/.test(pw) },
+];
 
 export default function Auth({ onAuthSuccess }: AuthProps) {
   const [isLogin, setIsLogin] = useState(true);
@@ -14,12 +22,21 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+
+  const allRequirementsMet = isLogin || requirements.every(req => req.test(password));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setMessage('');
     setLoading(true);
+
+    if (!isLogin && !requirements.every(req => req.test(password))) {
+      setError('Please satisfy all password requirements before registering.');
+      setLoading(false);
+      return;
+    }
 
     const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
     const body = isLogin ? { email, password } : { email, password, name };
@@ -256,21 +273,60 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                      className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 focus:outline-none"
+                      title={showPassword ? 'Hide password' : 'Show password'}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
+
+                {/* Password Requirements - Register only */}
+                {!isLogin && (
+                  <div className="mt-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 space-y-2">
+                    <p className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                      Password Requirements
+                    </p>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {requirements.map((req) => {
+                        const isPassed = req.test(password);
+                        return (
+                          <div key={req.id} className="flex items-center gap-2">
+                            {isPassed ? (
+                              <Check className="w-4 h-4 text-emerald-500 stroke-[2.5]" />
+                            ) : (
+                              <X className="w-4 h-4 text-red-500 stroke-[2.5]" />
+                            )}
+                            <span className={`text-[11px] transition-colors duration-250 ${
+                              isPassed 
+                                ? 'text-emerald-600 dark:text-emerald-400 font-semibold' 
+                                : 'text-slate-400 dark:text-slate-500 line-through decoration-slate-300/60 dark:decoration-slate-850'
+                            }`}>
+                              {req.text}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Submit button */}
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="w-full mt-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-all hover:shadow-lg hover:shadow-blue-500/15 flex items-center justify-center gap-2 disabled:opacity-50"
+                  disabled={loading || !allRequirementsMet}
+                  className="w-full mt-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-all hover:shadow-lg hover:shadow-blue-500/15 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none"
+                  title={!allRequirementsMet ? "Please fulfill all password requirements to register" : ""}
                 >
                   {loading ? 'Authorizing Access...' : isLogin ? 'Authorize Access' : 'Create Ledger & Register'}
                   <ArrowRight className="w-4 h-4" />
@@ -287,6 +343,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                       setIsLogin(!isLogin);
                       setError('');
                       setMessage('');
+                      setShowPassword(false);
                     }}
                     className="text-xs font-bold text-blue-600 hover:text-blue-500 transition-colors"
                   >

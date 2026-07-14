@@ -25,7 +25,8 @@ import {
   Home,
   CheckCircle2,
   HelpCircle,
-  Wallet
+  Wallet,
+  Flame
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -41,6 +42,7 @@ import {
   Bar 
 } from 'recharts';
 import { Transaction, Budget, SavingsGoal, Subscription, Category } from '../types';
+import { calculateStreak } from '../lib/streak';
 
 // Dynamic Icon Resolver mapping strings to Lucide Components
 export const IconResolver = ({ name, className, style }: { name: string; className?: string; style?: React.CSSProperties }) => {
@@ -210,6 +212,24 @@ export default function Dashboard({
     return `${currencySymbol}${val.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
   };
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const { currentStreak, longestStreak, activeToday } = calculateStreak(transactions, todayStr);
+
+  // Generate the last 7 days status for habit visualization
+  const last7DaysStreak = [];
+  const weekdayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const nowMs = new Date().getTime();
+
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(nowMs - (i * oneDayMs));
+    const dateStr = d.toISOString().split('T')[0];
+    const dayLabel = weekdayNames[d.getDay()];
+    const hasTx = transactions.some(t => t.date && t.date.substring(0, 10) === dateStr);
+    const isToday = dateStr === todayStr;
+    last7DaysStreak.push({ dateStr, dayLabel, hasTx, isToday });
+  }
+
   return (
     <div id="dashboard-view" className="p-6 md:p-8 space-y-8 animate-fade-in no-print">
       
@@ -237,6 +257,72 @@ export default function Dashboard({
             <span>Add Transaction</span>
           </button>
         </div>
+      </div>
+
+      {/* Daily Habit Streak Banner */}
+      <div id="habit-streak-banner" className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden transition-all hover:shadow-md">
+        {/* Ambient subtle flame glow */}
+        <div className="absolute -top-12 -left-12 w-32 h-32 bg-amber-500/5 dark:bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+        
+        <div className="flex items-center gap-4 z-10">
+          <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+            currentStreak > 0 
+              ? 'bg-amber-500/10 text-amber-500 shadow-md shadow-amber-500/10' 
+              : 'bg-slate-50 dark:bg-slate-850 text-slate-400'
+          }`}>
+            <Flame className={`w-8 h-8 ${currentStreak > 0 ? 'fill-amber-500 text-amber-500' : 'text-slate-400'}`} />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-extrabold uppercase tracking-widest text-amber-500 dark:text-amber-400">DAILY LOGGING HABIT</span>
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                Record: {longestStreak} Days
+              </span>
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-900 dark:text-white mt-1 flex items-center gap-2">
+              <span>{currentStreak} Day{currentStreak === 1 ? '' : 's'} Streak</span>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-lg ${activeToday ? 'bg-emerald-500/10 text-emerald-500' : 'bg-amber-500/10 text-amber-500'}`}>
+                {activeToday ? 'Secured' : 'Needs Logging'}
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-xl">
+              {activeToday 
+                ? 'Habit secured for today! Keep logging transactions daily to lock in point multipliers and level up your financial rank.' 
+                : 'Log a new transaction (expense or income) today to extend your streak and secure extra bonus XP.'}
+            </p>
+          </div>
+        </div>
+
+        {/* 7-Day Habit Tracker Timeline Grid */}
+        <div className="flex items-center gap-3 sm:gap-4 overflow-x-auto pb-2 lg:pb-0 z-10 scrollbar-none shrink-0 border-t border-slate-100 dark:border-slate-800/60 pt-4 lg:border-t-0 lg:pt-0">
+          {last7DaysStreak.map((day, idx) => (
+            <div key={idx} className="flex flex-col items-center gap-1.5 min-w-[42px] relative">
+              <span className={`text-[10px] font-bold tracking-tight ${day.isToday ? 'text-amber-500 dark:text-amber-400 font-extrabold' : 'text-slate-400 dark:text-slate-500'}`}>
+                {day.isToday ? 'Today' : day.dayLabel}
+              </span>
+              
+              <div className={`
+                w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 border-2
+                ${day.hasTx 
+                  ? 'bg-amber-500/10 border-amber-500 text-amber-500 shadow-sm shadow-amber-500/10' 
+                  : day.isToday 
+                    ? 'bg-slate-50 dark:bg-slate-950 border-amber-500/30 border-dashed text-slate-400' 
+                    : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-300 dark:text-slate-700'}
+              `}>
+                {day.hasTx ? (
+                  <Flame className="w-5 h-5 fill-amber-500 text-amber-500" />
+                ) : (
+                  <span className="text-xs font-mono font-bold">•</span>
+                )}
+              </div>
+
+              {day.isToday && !day.hasTx && (
+                <span className="absolute -bottom-1.5 w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping"></span>
+              )}
+            </div>
+          ))}
+        </div>
+
       </div>
 
       {/* 1. Core Financial summary bento bards */}

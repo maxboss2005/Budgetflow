@@ -69,6 +69,7 @@ export default function Sidebar({
     { id: 'subscriptions', name: 'Subscriptions', icon: CalendarClock },
     { id: 'savings', name: 'Savings Goals', icon: TrendingUp },
     { id: 'insights', name: 'AI Smart Insights', icon: BrainCircuit, badge: 'Gemini' },
+    { id: 'rewards', name: 'Milestones Hub', icon: Trophy, badge: user?.level && user.level >= 5 ? 'Unlocked' : 'Rank' },
     { id: 'reports', name: 'Export Reports', icon: FileSpreadsheet },
     { id: 'settings', name: 'Settings', icon: Settings }
   ];

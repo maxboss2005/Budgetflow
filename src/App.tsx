@@ -29,9 +29,11 @@ import Reports from './components/Reports';
 import Settings from './components/Settings';
 import Auth from './components/Auth';
 import NotificationsDrawer from './components/NotificationsDrawer';
+import Rewards from './components/Rewards';
 
 // Offline DB and types
 import { localDb } from './lib/indexedDb';
+import { calculateStreak } from './lib/streak';
 import { 
   User, 
   Transaction, 
@@ -42,8 +44,21 @@ import {
   AppNotification 
 } from './types';
 
+const ACCENT_STYLES: Record<string, { primary: string; hover: string; rgb: string }> = {
+  azure: { primary: '#2563EB', hover: '#1d4ed8', rgb: '37, 99, 235' },
+  emerald: { primary: '#10B981', hover: '#059669', rgb: '16, 185, 129' },
+  amber: { primary: '#F59E0B', hover: '#d97706', rgb: '245, 158, 11' },
+  fuchsia: { primary: '#D946EF', hover: '#c084fc', rgb: '217, 70, 239' },
+  gold: { primary: '#EAB308', hover: '#ca8a04', rgb: '234, 179, 8' }
+};
+
 export default function App() {
   
+  // Premium accent theme overrides
+  const [accentKey] = useState(() => {
+    return localStorage.getItem('budgetflow_accent_key') || 'azure';
+  });
+
   // Theme state
   const [theme, setTheme] = useState<'light' | 'dark'>(() => {
     const saved = localStorage.getItem('budgetflow_theme');
@@ -521,10 +536,42 @@ export default function App() {
       createdAt: new Date().toISOString()
     };
 
+    // Calculate daily streak bonus
+    const preStreak = calculateStreak(transactions);
+    const postStreak = calculateStreak([fullTx, ...transactions]);
+
     // Update Local States first
     setTransactions(prev => [fullTx, ...prev]);
     await localDb.put('transactions', fullTx);
     awardPoints(25, `Logged expense: ${fullTx.categoryName}`);
+
+    // Check if this is the first transaction of today, and extends or starts a streak
+    if (!preStreak.activeToday && postStreak.activeToday) {
+      if (postStreak.currentStreak >= 2) {
+        let bonusAmount = 50;
+        let bonusReason = '';
+        if (postStreak.currentStreak === 2) {
+          bonusAmount = 50;
+          bonusReason = `2-Day Daily Streak! Keep logging daily to build your momentum! 🔥`;
+        } else if (postStreak.currentStreak === 3) {
+          bonusAmount = 75;
+          bonusReason = `3-Day Daily Streak! You are a financial habit champion! 🔥`;
+        } else if (postStreak.currentStreak === 4) {
+          bonusAmount = 100;
+          bonusReason = `4-Day Daily Streak! Incredible discipline! 🔥`;
+        } else {
+          bonusAmount = 150;
+          bonusReason = `${postStreak.currentStreak}-Day Daily Streak! UNSTOPPABLE HABIT MASTER! 👑🔥`;
+        }
+        setTimeout(() => {
+          awardPoints(bonusAmount, bonusReason);
+        }, 1000);
+      } else {
+        setTimeout(() => {
+          awardPoints(15, `Started a new daily tracking streak! Keep logging tomorrow to build momentum! 🌱`);
+        }, 1000);
+      }
+    }
 
     if (isOnline && token) {
       try {
@@ -922,6 +969,16 @@ export default function App() {
     }
   };
 
+  const openGlobalTxModal = (type: 'expense' | 'income' = 'expense') => {
+    setGlobalTxAmount('');
+    setGlobalTxType(type);
+    const firstCat = categories.find(c => c.type === type);
+    setGlobalTxCategoryId(firstCat?.id || '');
+    setGlobalTxDate(new Date().toISOString().split('T')[0]);
+    setGlobalTxNotes('');
+    setGlobalTxModalOpen(true);
+  };
+
   // --- GLOBAL TRANSACTION MODAL ACTION FORM SUBMIT (FAB Shortcut) ---
   const handleGlobalTxSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -974,7 +1031,7 @@ export default function App() {
             subscriptions={subscriptions}
             categories={categories}
             currencySymbol={currencySymbol}
-            onAddTxClick={() => setGlobalTxModalOpen(true)}
+            onAddTxClick={() => openGlobalTxModal('expense')}
             setActiveTab={setActiveTab}
             loading={dataLoading}
           />
@@ -1038,6 +1095,19 @@ export default function App() {
             currencySymbol={currencySymbol}
           />
         );
+      case 'rewards':
+        return (
+          <Rewards
+            user={user}
+            transactions={transactions}
+            subscriptions={subscriptions}
+            categories={categories}
+            currencySymbol={currencySymbol}
+            awardPoints={awardPoints}
+            onUpdateUser={handleUpdateUser}
+            token={token}
+          />
+        );
       case 'reports':
         return (
           <Reports
@@ -1067,6 +1137,24 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors duration-200">
+      {accentKey !== 'azure' && ACCENT_STYLES[accentKey] && (
+        <style>{`
+          .bg-blue-600 { background-color: ${ACCENT_STYLES[accentKey].primary} !important; }
+          .bg-blue-500 { background-color: ${ACCENT_STYLES[accentKey].primary} !important; }
+          .text-blue-600 { color: ${ACCENT_STYLES[accentKey].primary} !important; }
+          .text-blue-500 { color: ${ACCENT_STYLES[accentKey].primary} !important; }
+          .border-blue-500 { border-color: ${ACCENT_STYLES[accentKey].primary} !important; }
+          .border-blue-600 { border-color: ${ACCENT_STYLES[accentKey].primary} !important; }
+          .hover\\:bg-blue-600:hover { background-color: ${ACCENT_STYLES[accentKey].hover} !important; }
+          .hover\\:bg-blue-700:hover { background-color: ${ACCENT_STYLES[accentKey].hover} !important; }
+          .focus\\:ring-blue-500:focus { --tw-ring-color: ${ACCENT_STYLES[accentKey].primary} !important; }
+          .shadow-blue-500\\/25 { --tw-shadow-color: rgba(${ACCENT_STYLES[accentKey].rgb}, 0.25) !important; }
+          .shadow-blue-500\\/20 { --tw-shadow-color: rgba(${ACCENT_STYLES[accentKey].rgb}, 0.2) !important; }
+          .bg-blue-50 { background-color: rgba(${ACCENT_STYLES[accentKey].rgb}, 0.05) !important; }
+          .dark\\:bg-blue-900\\/15 { background-color: rgba(${ACCENT_STYLES[accentKey].rgb}, 0.15) !important; }
+          .text-blue-400 { color: ${ACCENT_STYLES[accentKey].primary} !important; }
+        `}</style>
+      )}
       
       {/* 1. Side Drawer Panel */}
       <Sidebar
@@ -1152,7 +1240,7 @@ export default function App() {
 
       {/* 4. Persistent Floating Action Button Shortcut (FAB) */}
       <button
-        onClick={() => setGlobalTxModalOpen(true)}
+        onClick={() => openGlobalTxModal('expense')}
         className="fixed bottom-6 right-6 z-40 md:z-10 w-14 h-14 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-2xl hover:shadow-blue-600/35 hover:scale-105 active:scale-95 transition-all cursor-pointer no-print"
         title="Log transaction instantly"
       >
@@ -1181,14 +1269,22 @@ export default function App() {
               <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200/50 dark:border-slate-800/50">
                 <button
                   type="button"
-                  onClick={() => { setGlobalTxType('expense'); }}
+                  onClick={() => {
+                    setGlobalTxType('expense');
+                    const firstExp = categories.find(c => c.type === 'expense');
+                    setGlobalTxCategoryId(firstExp?.id || '');
+                  }}
                   className={`py-1.5 rounded-lg text-xs font-bold transition-all ${globalTxType === 'expense' ? 'bg-white dark:bg-slate-800 text-red-500 shadow-sm' : 'text-slate-400'}`}
                 >
                   Expense
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setGlobalTxType('income'); }}
+                  onClick={() => {
+                    setGlobalTxType('income');
+                    const firstInc = categories.find(c => c.type === 'income');
+                    setGlobalTxCategoryId(firstInc?.id || '');
+                  }}
                   className={`py-1.5 rounded-lg text-xs font-bold transition-all ${globalTxType === 'income' ? 'bg-white dark:bg-slate-800 text-emerald-500 shadow-sm' : 'text-slate-400'}`}
                 >
                   Income
