@@ -86,7 +86,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
             <Wallet className="w-5 h-5 text-white" />
           </div>
-          <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">DevFint</span>
+          <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">BudgetFlow</span>
           <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700/50 font-mono">SaaS v1.0</span>
         </div>
 
@@ -141,7 +141,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
           <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center">
             <Wallet className="w-4.5 h-4.5 text-white" />
           </div>
-          <span className="font-bold text-xl text-slate-900 dark:text-white">DevFint</span>
+          <span className="font-bold text-xl text-slate-900 dark:text-white">BudgetFlow</span>
         </div>
 
         <div className="w-full max-w-sm">
@@ -154,7 +154,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 {isForgotPassword 
                   ? 'Recover Security Code' 
                   : isLogin 
-                    ? 'Login to DevFint' 
+                    ? 'Login to BudgetFlow' 
                     : 'Register Premium SaaS'
                 }
               </h2>

@@ -782,7 +782,7 @@ export class Database {
       });
 
       // Seed notifications
-      this.createNotification(userId, 'system', 'Welcome to DevFint! Explore your pre-populated high-net-worth developer workspace.');
+      this.createNotification(userId, 'system', 'Welcome to BudgetFlow! Explore your pre-populated high-net-worth developer workspace.');
       this.createNotification(userId, 'savings_milestone', 'Emergency Fund Goal milestone: You have reached 75% of your target savings!');
       this.createNotification(userId, 'budget_alert', 'Warning: Food budget has reached 52% utilization for this billing period.');
     }

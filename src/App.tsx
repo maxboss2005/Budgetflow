@@ -105,12 +105,24 @@ export default function App() {
   const [dataLoading, setDataLoading] = useState(false);
 
   // PWA installation states
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(() => {
+    return (window as any).getDeferredInstallPrompt?.() || null;
+  });
   const [isAppInstalled, setIsAppInstalled] = useState(() => {
     return window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
   });
 
   useEffect(() => {
+    const earlyPrompt = (window as any).getDeferredInstallPrompt?.();
+    if (earlyPrompt) {
+      setDeferredPrompt(earlyPrompt);
+    }
+
+    // Register global hook for early capture callbacks
+    (window as any).onBeforeInstallPromptReady = (e: any) => {
+      setDeferredPrompt(e);
+    };
+
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e);
@@ -119,8 +131,9 @@ export default function App() {
     const handleAppInstalled = () => {
       setIsAppInstalled(true);
       setDeferredPrompt(null);
+      (window as any).clearDeferredInstallPrompt?.();
       setTimeout(() => {
-        awardPoints(150, "PWA Installed! DevFint is now a fully native app! 📱✨");
+        awardPoints(150, "PWA Installed! BudgetFlow is now a fully native app! 📱✨");
       }, 1500);
     };
 
@@ -128,6 +141,7 @@ export default function App() {
     window.addEventListener('appinstalled', handleAppInstalled);
 
     return () => {
+      (window as any).onBeforeInstallPromptReady = null;
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
     };
@@ -141,6 +155,7 @@ export default function App() {
     const { outcome } = await deferredPrompt.userChoice;
     console.log(`[PWA] Install choice outcome: ${outcome}`);
     setDeferredPrompt(null);
+    (window as any).clearDeferredInstallPrompt?.();
   };
 
   // PWA/Network synchronization states
@@ -1265,7 +1280,7 @@ export default function App() {
                 <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
                   <Wallet className="w-4 h-4 text-white" />
                 </div>
-                <span className="font-bold text-sm text-slate-900 dark:text-white">DevFint</span>
+                <span className="font-bold text-sm text-slate-900 dark:text-white">BudgetFlow</span>
               </div>
             </div>
             
