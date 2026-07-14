@@ -60,6 +60,7 @@ export default function Subscriptions({
   const today = new Date();
   const [currentCalendarMonth, setCurrentCalendarMonth] = useState(today.getMonth());
   const [currentCalendarYear, setCurrentCalendarYear] = useState(today.getFullYear());
+  const [selectedDay, setSelectedDay] = useState<number | null>(today.getDate());
 
   // Calculations: Total Subscription Costs
   const activeSubs = subscriptions.filter(s => s.status === 'active');
@@ -246,66 +247,199 @@ export default function Subscriptions({
 
       {/* Subscription Calendar View Section */}
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200/60 dark:border-slate-800/80 p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="w-5 h-5 text-blue-500" />
-            <h3 className="text-base font-bold text-slate-900 dark:text-white">Renewal Calendar</h3>
-          </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           
-          <div className="flex items-center gap-3">
-            <button onClick={handlePrevMonth} className="p-1 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronLeft className="w-4 h-4" /></button>
-            <span className="text-xs font-bold text-slate-700 dark:text-slate-300 min-w-[100px] text-center font-mono">{months[currentCalendarMonth]} {currentCalendarYear}</span>
-            <button onClick={handleNextMonth} className="p-1 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><ChevronRight className="w-4 h-4" /></button>
-          </div>
-        </div>
-
-        {/* Simple calendar grid */}
-        <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-bold font-mono text-slate-400 border-b border-slate-100 dark:border-slate-800/40 pb-2 mb-2">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <span key={d}>{d}</span>)}
-        </div>
-
-        <div className="grid grid-cols-7 gap-1.5 text-xs">
-          {calendarDays.map((day, idx) => {
-            const isToday = day === today.getDate() && currentCalendarMonth === today.getMonth() && currentCalendarYear === today.getFullYear();
-            const dueSubs = day ? getSubsDueOnDay(day) : [];
-            const hasDue = dueSubs.length > 0;
-
-            return (
-              <div 
-                key={idx} 
-                className={`
-                  h-14 rounded-xl flex flex-col justify-between p-1.5 border relative group/cell transition-colors
-                  ${day ? 'bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-900' : 'bg-transparent border-transparent'}
-                  ${isToday ? 'ring-2 ring-blue-500 ring-offset-2 dark:ring-offset-slate-900' : ''}
-                `}
-              >
-                {day && (
-                  <>
-                    <span className={`text-[10px] font-bold font-mono ${isToday ? 'text-blue-500' : 'text-slate-500 dark:text-slate-400'}`}>{day}</span>
-                    
-                    {/* Dots indicator or sub names if due */}
-                    {hasDue && (
-                      <div className="flex flex-col items-center gap-0.5 max-h-6 overflow-hidden">
-                        <span className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></span>
-                        
-                        {/* Hover Overlay cell details */}
-                        <div className="absolute hidden group-hover/cell:block bottom-14 left-1/2 -translate-x-1/2 z-30 p-2.5 bg-slate-950 border border-slate-800 rounded-xl shadow-xl w-44 text-white text-left font-sans">
-                          <p className="text-[10px] font-bold uppercase text-purple-400 tracking-wider mb-1.5">Renewal Due:</p>
-                          {dueSubs.map((s, sIdx) => (
-                            <div key={sIdx} className="flex justify-between items-center text-[11px] font-semibold mb-1 border-b border-slate-800/60 pb-1">
-                              <span className="truncate max-w-[90px]">{s.name}</span>
-                              <span className="font-mono text-[10px] text-slate-300">{formatCurrency(s.amount)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
+          {/* Column 1: Monthly Interactive Calendar Grid */}
+          <div className="lg:col-span-8 space-y-4">
+            
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-5 h-5 text-blue-500" />
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-white">Renewal Calendar</h3>
+                  <p className="text-[10px] text-slate-400">Interactive node grid mapping upcoming automated billing dates.</p>
+                </div>
               </div>
-            );
-          })}
+              
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={handlePrevMonth} 
+                  className="p-1 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <span className="text-xs font-bold text-slate-700 dark:text-slate-300 min-w-[100px] text-center font-mono uppercase tracking-wider">{months[currentCalendarMonth]} {currentCalendarYear}</span>
+                <button 
+                  onClick={handleNextMonth} 
+                  className="p-1 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Calendar grid */}
+            <div>
+              <div className="grid grid-cols-7 gap-1.5 text-center text-xs font-bold font-mono text-slate-400 border-b border-slate-100 dark:border-slate-800/40 pb-2 mb-2">
+                {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(d => <span key={d}>{d}</span>)}
+              </div>
+
+              <div className="grid grid-cols-7 gap-1.5 text-xs">
+                {calendarDays.map((day, idx) => {
+                  if (!day) return <div key={idx} className="h-14 bg-transparent border-transparent" />;
+
+                  const isToday = day === today.getDate() && currentCalendarMonth === today.getMonth() && currentCalendarYear === today.getFullYear();
+                  const isSelected = selectedDay === day;
+                  const dueSubs = getSubsDueOnDay(day);
+                  const hasDue = dueSubs.length > 0;
+
+                  // Heavy bill day check: 2 or more subs OR total daily bill exceeds 100
+                  const totalDailyCost = dueSubs.reduce((sum, s) => sum + s.amount, 0);
+                  const isHeavyBillDay = dueSubs.length >= 2 || totalDailyCost >= 100;
+
+                  return (
+                    <button 
+                      key={idx} 
+                      onClick={() => setSelectedDay(day)}
+                      className={`
+                        h-14 rounded-xl flex flex-col justify-between p-1.5 border relative group/cell transition-all text-left cursor-pointer
+                        ${isSelected 
+                          ? 'bg-blue-50/50 dark:bg-blue-900/10 border-blue-500 text-blue-600 dark:text-blue-400 ring-2 ring-blue-500/20' 
+                          : 'bg-slate-50 dark:bg-slate-950 border-slate-100 dark:border-slate-800/40 hover:bg-slate-100 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300'}
+                        ${isToday ? 'border-amber-400 dark:border-amber-500' : ''}
+                        ${isHeavyBillDay && hasDue ? 'border-red-500/30 bg-red-50/20 dark:bg-red-950/5' : ''}
+                      `}
+                    >
+                      <div className="flex justify-between items-center w-full">
+                        <span className={`text-[10px] font-mono font-bold ${isToday ? 'text-amber-500' : isSelected ? 'text-blue-500' : 'text-slate-450'}`}>{day}</span>
+                        {isToday && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Today"></span>}
+                      </div>
+                      
+                      {hasDue && (
+                        <div className="flex items-center justify-between w-full">
+                          <span className={`text-[7px] sm:text-[8px] font-mono font-bold px-1 py-0.2 rounded ${isHeavyBillDay ? 'bg-red-150 text-red-600 dark:bg-red-950/40 dark:text-red-400 animate-pulse' : 'bg-purple-100 text-purple-600 dark:bg-purple-950/40 dark:text-purple-400'}`}>
+                            <span className="inline sm:hidden">{dueSubs.length}</span>
+                            <span className="hidden sm:inline">{dueSubs.length} bill{dueSubs.length > 1 ? 's' : ''}</span>
+                          </span>
+                          {isHeavyBillDay && <AlertCircle className="w-3 h-3 text-red-500 shrink-0" title="Heavy Bill Day Indicator" />}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Selected day focused node information */}
+            {selectedDay && (
+              <div className="p-4 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 space-y-2">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-xs font-extrabold text-slate-800 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Focus Day Ledger · {months[currentCalendarMonth]} {selectedDay}, {currentCalendarYear}</span>
+                  </h4>
+                  {getSubsDueOnDay(selectedDay).length > 0 && (
+                    <span className="text-[10px] font-mono font-bold text-red-500">
+                      Total Bills: {formatCurrency(getSubsDueOnDay(selectedDay).reduce((sum, s) => sum + s.amount, 0))}
+                    </span>
+                  )}
+                </div>
+                
+                {(() => {
+                  const daySubs = getSubsDueOnDay(selectedDay);
+                  if (daySubs.length === 0) {
+                    return <p className="text-xs text-slate-400 italic">Clear sky day. No subscription bills scheduled to draw liquidity on this date.</p>;
+                  }
+                  return (
+                    <div className="space-y-2">
+                      {daySubs.map((s, idx) => {
+                        const isCancelled = s.status === 'cancelled';
+                        return (
+                          <div key={idx} className="flex justify-between items-center p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800/80">
+                            <div className="flex items-center gap-2">
+                              <span className="w-2 h-2 rounded-full bg-purple-500"></span>
+                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200">{s.name}</span>
+                              <span className="text-[9px] px-1.5 py-0.2 rounded-full uppercase tracking-wider bg-slate-100 dark:bg-slate-850 text-slate-400 font-bold">{s.billingCycle}</span>
+                            </div>
+                            <span className="text-xs font-bold font-mono text-slate-900 dark:text-white">{formatCurrency(s.amount)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+          </div>
+
+          {/* Column 2: Subscription Renewal Timeline Sidebar */}
+          <div className="lg:col-span-4 border-t lg:border-t-0 lg:border-l border-slate-100 dark:border-slate-800/80 lg:pl-6 space-y-4">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-0.5">Renewals Timeline</h3>
+              <p className="text-[10px] text-slate-400">Chronological pipeline of upcoming active SaaS billings.</p>
+            </div>
+
+            <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+              {activeSubs
+                .map(sub => {
+                  const daysLeft = Math.ceil((new Date(sub.nextBillingDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+                  return { ...sub, daysLeft };
+                })
+                .sort((a, b) => {
+                  // Keep positive days first, sorted ascending
+                  if (a.daysLeft >= 0 && b.daysLeft < 0) return -1;
+                  if (a.daysLeft < 0 && b.daysLeft >= 0) return 1;
+                  return a.daysLeft - b.daysLeft;
+                })
+                .slice(0, 5)
+                .map((sub, idx) => {
+                  const isSoon = sub.daysLeft >= 0 && sub.daysLeft <= 5;
+                  return (
+                    <div 
+                      key={sub.id} 
+                      className={`p-3 rounded-2xl border transition-all relative overflow-hidden ${
+                        isSoon 
+                          ? 'border-red-500/20 bg-red-50/10 dark:bg-red-950/5' 
+                          : 'border-slate-100 dark:border-slate-800/50 bg-slate-50/30 dark:bg-slate-950/20'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start mb-1.5">
+                        <div className="truncate pr-2">
+                          <span className="text-xs font-extrabold text-slate-800 dark:text-slate-100 block truncate">{sub.name}</span>
+                          <span className="text-[9px] font-semibold text-slate-400 capitalize">{sub.billingCycle} cycle</span>
+                        </div>
+                        <span className="text-xs font-bold font-mono text-slate-900 dark:text-white">{formatCurrency(sub.amount)}</span>
+                      </div>
+
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-slate-150 dark:border-slate-850">
+                        <div className="flex items-center gap-1 text-[9px] font-bold text-slate-400 uppercase">
+                          <Calendar className="w-3 h-3 text-slate-400" />
+                          <span>Due {sub.nextBillingDate}</span>
+                        </div>
+
+                        {sub.daysLeft < 0 ? (
+                          <span className="text-[10px] font-extrabold text-slate-400">Drafted</span>
+                        ) : sub.daysLeft === 0 ? (
+                          <span className="text-[10px] font-extrabold text-red-500 animate-pulse">DUE TODAY</span>
+                        ) : (
+                          <span className={`text-[10px] font-extrabold ${isSoon ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                            {sub.daysLeft} day{sub.daysLeft > 1 ? 's' : ''} left
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              {activeSubs.length === 0 && (
+                <p className="text-xs text-slate-400 italic py-6 text-center">No active automated subscriptions registered.</p>
+              )}
+            </div>
+          </div>
+
         </div>
+
       </div>
 
       {/* Filters & Grid representation */}

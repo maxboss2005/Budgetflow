@@ -326,7 +326,7 @@ export default function Rewards({
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Explore features you can unlock as you build up your account ranking.</p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {milestones.map((m) => (
             <button
               key={m.level}
@@ -471,7 +471,7 @@ export default function Rewards({
                 {/* Display Graph & Metrics */}
                 <div className="lg:col-span-2 space-y-6">
                   {/* Summary row */}
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-250 dark:border-slate-850">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Capital Paid</span>
                       <span className="text-lg font-black text-slate-800 dark:text-white font-mono block mt-1">{formatCurrency(finalSimInvested)}</span>
@@ -645,7 +645,7 @@ export default function Rewards({
                 </div>
 
                 {subscriptions.length > 0 ? (
-                  <div className="border border-slate-150 dark:border-slate-850 rounded-2xl overflow-hidden">
+                  <div className="border border-slate-150 dark:border-slate-850 rounded-2xl overflow-x-auto">
                     <table className="w-full text-xs text-left">
                       <thead>
                         <tr className="bg-slate-50/50 dark:bg-slate-950/40 border-b border-slate-150 dark:border-slate-850 text-slate-400 font-bold">

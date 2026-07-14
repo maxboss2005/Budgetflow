@@ -15,9 +15,16 @@ import {
   Unlock,
   Eye,
   EyeOff,
-  AlertCircle
+  AlertCircle,
+  Download,
+  Smartphone,
+  Monitor,
+  Edit,
+  X,
+  Check
 } from 'lucide-react';
-import { User as UserType } from '../types';
+import { User as UserType, Category } from '../types';
+import { IconResolver } from './Dashboard';
 
 interface SettingsProps {
   user: UserType;
@@ -25,6 +32,11 @@ interface SettingsProps {
   onDeleteAccount: () => void;
   currencySymbol: string;
   setCurrencySymbol: (sym: string) => void;
+  isAppInstalled: boolean;
+  deferredPrompt: any;
+  onInstallApp: () => Promise<void>;
+  categories: Category[];
+  onUpdateCategory: (id: string, updates: any) => Promise<void>;
 }
 
 export default function Settings({
@@ -32,7 +44,12 @@ export default function Settings({
   onUpdateUser,
   onDeleteAccount,
   currencySymbol,
-  setCurrencySymbol
+  setCurrencySymbol,
+  isAppInstalled,
+  deferredPrompt,
+  onInstallApp,
+  categories,
+  onUpdateCategory
 }: SettingsProps) {
 
   // States
@@ -51,6 +68,39 @@ export default function Settings({
   const [adminPassword, setAdminPassword] = useState('');
   const [adminError, setAdminError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // States for Category Customization
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editCatName, setEditCatName] = useState('');
+  const [editCatColor, setEditCatColor] = useState('');
+  const [editCatIcon, setEditCatIcon] = useState('');
+
+  const startCategoryEdit = (cat: Category) => {
+    setEditingCategoryId(cat.id);
+    setEditCatName(cat.name);
+    setEditCatColor(cat.color || '#3B82F6');
+    setEditCatIcon(cat.icon || 'HelpCircle');
+  };
+
+  const handleSaveCategoryEdit = async () => {
+    if (!editingCategoryId) return;
+    if (!editCatName.trim()) {
+      alert('Category name is required.');
+      return;
+    }
+    try {
+      await onUpdateCategory(editingCategoryId, {
+        name: editCatName.trim(),
+        color: editCatColor,
+        icon: editCatIcon,
+      });
+      setEditingCategoryId(null);
+      setSuccessMsg('Category updated successfully.');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update category.');
+    }
+  };
 
   const handleAdminUnlock = (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,6 +263,241 @@ export default function Settings({
                 );
               })}
             </div>
+          </div>
+
+          {/* Category Colors & Icon Customizer */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-3">
+              <SettingsIcon className="w-4 h-4 text-purple-500" />
+              <span>Category Colors & Icon Customizer</span>
+            </h3>
+            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
+              Completely customize your transaction categories. Re-map their names, color markers, and Lucide iconography dynamically. These changes propagate instantly across charts, ledgers, and bento cards.
+            </p>
+
+            <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+              {categories.map((cat) => {
+                const isEditing = editingCategoryId === cat.id;
+                return (
+                  <div 
+                    key={cat.id} 
+                    className="p-3.5 rounded-2xl border border-slate-150 dark:border-slate-800/50 bg-slate-50/50 dark:bg-slate-950/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all"
+                  >
+                    {isEditing ? (
+                      <div className="flex-1 space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Category Name</label>
+                            <input
+                              type="text"
+                              value={editCatName}
+                              onChange={(e) => setEditCatName(e.target.value)}
+                              className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1">Icon Type</label>
+                            <select
+                              value={editCatIcon}
+                              onChange={(e) => setEditCatIcon(e.target.value)}
+                              className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
+                            >
+                              <option value="Briefcase">💼 Salary (Briefcase)</option>
+                              <option value="Laptop">💻 Freelance (Laptop)</option>
+                              <option value="Utensils">🍴 Food (Utensils)</option>
+                              <option value="Car">🚗 Transport (Car)</option>
+                              <option value="ShoppingBag">🛍️ Shopping (ShoppingBag)</option>
+                              <option value="FileText">📄 Bills (FileText)</option>
+                              <option value="Heart">❤️ Health (Heart)</option>
+                              <option value="GraduationCap">🎓 Education (GraduationCap)</option>
+                              <option value="Play">🎮 Entertainment (Play)</option>
+                              <option value="Home">🏠 Rent (Home)</option>
+                              <option value="Sparkles">✨ Others (Sparkles)</option>
+                              <option value="Dumbbell">💪 Fitness (Dumbbell)</option>
+                              <option value="Wallet">💳 Wallet</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        {/* Color Selector circles */}
+                        <div>
+                          <label className="block text-[9px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Color Palette Marker</label>
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              '#EF4444', // red
+                              '#F59E0B', // amber
+                              '#10B981', // emerald
+                              '#3B82F6', // blue
+                              '#6366F1', // indigo
+                              '#8B5CF6', // purple
+                              '#EC4899', // pink
+                              '#6B7280', // gray
+                              '#14B8A6', // teal
+                              '#F43F5E', // rose
+                            ].map((col) => (
+                              <button
+                                key={col}
+                                type="button"
+                                onClick={() => setEditCatColor(col)}
+                                style={{ backgroundColor: col }}
+                                className={`w-5 h-5 rounded-full transition-all cursor-pointer ${editCatColor === col ? 'ring-2 ring-offset-2 ring-blue-500 scale-110' : 'opacity-80 hover:opacity-100 hover:scale-105'}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={handleSaveCategoryEdit}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer transition-all active:scale-95"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Apply Changes</span>
+                          </button>
+                          <button
+                            onClick={() => setEditingCategoryId(null)}
+                            className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer transition-all"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                            <span>Cancel</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-3">
+                          <div 
+                            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
+                            style={{ backgroundColor: `${cat.color}15`, color: cat.color }}
+                          >
+                            <IconResolver name={cat.icon || 'HelpCircle'} className="w-5 h-5" />
+                          </div>
+                          <div>
+                            <span className="text-xs font-extrabold text-slate-900 dark:text-white flex items-center gap-1.5">
+                              {cat.name}
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full uppercase tracking-wider bg-slate-100 dark:bg-slate-800 text-slate-400 font-bold">
+                                {cat.type}
+                              </span>
+                            </span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="w-2.5 h-2.5 rounded-full border border-white/20" style={{ backgroundColor: cat.color }}></span>
+                              <span className="text-[10px] font-mono text-slate-400 uppercase">{cat.color}</span>
+                              <span className="text-[10px] font-mono text-slate-400">· {cat.icon || 'HelpCircle'}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          onClick={() => startCategoryEdit(cat)}
+                          className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-850 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 text-[11px] font-bold rounded-lg flex items-center gap-1 transition-all cursor-pointer"
+                        >
+                          <Edit className="w-3 h-3 text-slate-400" />
+                          <span>Customize</span>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Progressive Web App (PWA) Install Section */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm relative overflow-hidden">
+            <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-3">
+              <Smartphone className="w-4 h-4 text-blue-500" />
+              <span>Native Desktop & Mobile App</span>
+            </h3>
+            <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+              Install BudgetFlow directly to your system dock, desktop, or mobile home screen. Enjoy complete offline access, quick launcher shortcuts, and native application styling.
+            </p>
+
+            {isAppInstalled ? (
+              <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 flex items-center gap-3.5">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-500 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-500">PWA STATUS: INSTALLED</span>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">BudgetFlow is running as a native standalone system application. Performance optimization active.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {deferredPrompt ? (
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 rounded-2xl bg-blue-500/5 border border-blue-500/10">
+                    <div className="space-y-1">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-500">
+                        <Sparkles className="w-3 h-3 text-amber-500" />
+                        <span>150 XP BONUS</span>
+                      </span>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">Native installer package is ready!</p>
+                      <p className="text-[11px] text-slate-400">Click install to run BudgetFlow natively and earn bonus XP.</p>
+                    </div>
+                    <button
+                      onClick={onInstallApp}
+                      className="w-full sm:w-auto px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-650/15 cursor-pointer flex items-center justify-center gap-2 transition-all shrink-0 active:scale-95"
+                    >
+                      <Download className="w-4 h-4" />
+                      <span>Install App Now</span>
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* IFrame Caution Banner */}
+                    <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800/50 space-y-2.5">
+                      <div className="flex items-start gap-2.5">
+                        <Info className="w-4.5 h-4.5 text-blue-500 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="text-xs font-bold text-slate-950 dark:text-slate-50">Browser Sandbox Detected</p>
+                          <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                            PWAs cannot trigger custom install prompts inside sandboxed preview iframes. To install this app natively on your computer or phone, please open the standalone app in a new tab.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-1">
+                        <button
+                          onClick={() => window.open(window.location.href, '_blank')}
+                          className="w-full py-2 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-850 text-slate-700 dark:text-slate-300 text-xs font-extrabold border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer"
+                        >
+                          <Monitor className="w-4 h-4" />
+                          <span>Open in Standalone Tab</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Step-by-step device guides */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-850/50 bg-slate-50/50 dark:bg-slate-950/20">
+                        <h4 className="text-[11px] font-bold text-slate-950 dark:text-slate-200 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                          <Smartphone className="w-3.5 h-3.5 text-blue-500" />
+                          <span>iOS / iPadOS Safari</span>
+                        </h4>
+                        <ol className="list-decimal pl-4 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+                          <li>Open app link in <strong>Safari</strong></li>
+                          <li>Tap the <strong>Share</strong> icon (box with up arrow)</li>
+                          <li>Choose <strong>Add to Home Screen</strong></li>
+                        </ol>
+                      </div>
+
+                      <div className="p-3.5 rounded-2xl border border-slate-100 dark:border-slate-850/50 bg-slate-50/50 dark:bg-slate-950/20">
+                        <h4 className="text-[11px] font-bold text-slate-950 dark:text-slate-200 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                          <Monitor className="w-3.5 h-3.5 text-blue-500" />
+                          <span>Chrome / Edge / Opera</span>
+                        </h4>
+                        <ol className="list-decimal pl-4 text-[11px] text-slate-500 dark:text-slate-400 space-y-1">
+                          <li>Open app in a new tab</li>
+                          <li>Click the <strong>Install</strong> icon in the address bar</li>
+                          <li>Or open browser menu & select <strong>Install App</strong></li>
+                        </ol>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
         </div>

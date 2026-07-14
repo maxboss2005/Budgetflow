@@ -15,7 +15,8 @@ import {
   Award,
   CheckCircle2,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  Edit2
 } from 'lucide-react';
 import { SavingsGoal } from '../types';
 import { IconResolver } from './Dashboard';
@@ -55,6 +56,19 @@ export default function Savings({
   const [adjustType, setAdjustType] = useState<'deposit' | 'withdraw'>('deposit');
   const [adjustAmount, setAdjustAmount] = useState('');
 
+  // Modal State for Editing goal
+  const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
+
+  // Confetti celebration state
+  const [showConfetti, setShowConfetti] = useState(false);
+
+  const triggerCelebration = () => {
+    setShowConfetti(true);
+    setTimeout(() => {
+      setShowConfetti(false);
+    }, 4500);
+  };
+
   // --- Aggregate Stats Calculations ---
   const aggregateTarget = goals.reduce((sum, g) => sum + g.targetAmount, 0);
   const aggregateCurrent = goals.reduce((sum, g) => sum + g.currentAmount, 0);
@@ -78,14 +92,31 @@ export default function Savings({
       targetDate,
       icon,
       color,
-      status: 'active'
+      status: parsedCurrent >= parsedTarget ? 'reached' : 'active'
     };
 
-    onAddGoal(payload);
+    if (editingGoal) {
+      onUpdateGoal(editingGoal.id, payload);
+    } else {
+      onAddGoal(payload);
+    }
+
     setModalOpen(false);
+    setEditingGoal(null);
     setName('');
     setTargetAmount('');
     setCurrentAmount('');
+  };
+
+  const openEditModal = (goal: SavingsGoal) => {
+    setEditingGoal(goal);
+    setName(goal.name);
+    setTargetAmount(goal.targetAmount.toString());
+    setCurrentAmount(goal.currentAmount.toString());
+    setTargetDate(goal.targetDate || goal.deadline || '');
+    setIcon(goal.icon || 'PiggyBank');
+    setColor(goal.color || '#3B82F6');
+    setModalOpen(true);
   };
 
   const handleAdjustmentSubmit = (e: React.FormEvent) => {
@@ -101,6 +132,10 @@ export default function Savings({
     let nextAmount = selectedGoal.currentAmount;
     if (adjustType === 'deposit') {
       nextAmount += parsedAdjust;
+      // Trigger confetti if this deposit crosses 100% threshold
+      if (nextAmount >= selectedGoal.targetAmount && selectedGoal.currentAmount < selectedGoal.targetAmount) {
+        triggerCelebration();
+      }
     } else {
       nextAmount = Math.max(0, nextAmount - parsedAdjust);
     }
@@ -139,7 +174,16 @@ export default function Savings({
         </div>
 
         <button 
-          onClick={() => setModalOpen(true)}
+          onClick={() => {
+            setEditingGoal(null);
+            setName('');
+            setTargetAmount('');
+            setCurrentAmount('');
+            setTargetDate(new Date().toISOString().split('T')[0]);
+            setIcon('PiggyBank');
+            setColor('#3B82F6');
+            setModalOpen(true);
+          }}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold hover:shadow-lg hover:shadow-blue-500/15 transition-all cursor-pointer self-start"
         >
           <Plus className="w-4 h-4" />
@@ -175,6 +219,136 @@ export default function Savings({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Visual Savings Milestones Map & Celebrations */}
+      <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm relative overflow-hidden">
+        
+        {/* LIGHTWEIGHT PURE-CSS CONFETTI GENERATOR */}
+        {showConfetti && (
+          <div className="absolute inset-0 pointer-events-none z-50 overflow-hidden">
+            {Array.from({ length: 60 }).map((_, idx) => {
+              const left = Math.floor(Math.random() * 100);
+              const delay = Math.random() * 2.5;
+              const duration = 2.5 + Math.random() * 2;
+              const size = 6 + Math.floor(Math.random() * 10);
+              const colors = ['#3B82F6', '#10B981', '#EC4899', '#EF4444', '#F59E0B', '#8B5CF6', '#14B8A6'];
+              const color = colors[Math.floor(Math.random() * colors.length)];
+              return (
+                <div
+                  key={idx}
+                  className="absolute rounded-sm animate-[savings-fall_3s_infinite_linear]"
+                  style={{
+                    left: `${left}%`,
+                    top: `-20px`,
+                    width: `${size}px`,
+                    height: `${size}px`,
+                    backgroundColor: color,
+                    animationDelay: `${delay}s`,
+                    animationDuration: `${duration}s`,
+                    transform: `rotate(${Math.random() * 360}deg)`,
+                  }}
+                />
+              );
+            })}
+            <style dangerouslySetInnerHTML={{__html: `
+              @keyframes savings-fall {
+                0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+                100% { transform: translateY(500px) rotate(720deg); opacity: 0; }
+              }
+            `}} />
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-indigo-500 animate-bounce" />
+            <div>
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">Milestones Map</h3>
+              <p className="text-[10px] text-slate-400">Chronological visual mapping of your savings targets towards completion.</p>
+            </div>
+          </div>
+
+          <button
+            onClick={triggerCelebration}
+            className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+            <span>Simulate Milestone Celebration 🎉</span>
+          </button>
+        </div>
+
+        {/* Milestone Map Track */}
+        <div className="py-6 px-4">
+          <div className="relative h-2.5 rounded-full bg-slate-100 dark:bg-slate-950 border border-slate-200/50 dark:border-slate-800/50">
+            
+            {/* Base Milestone Notches */}
+            {[25, 50, 75, 100].map((mMark) => (
+              <div 
+                key={mMark} 
+                className="absolute top-1/2 -translate-y-1/2 flex flex-col items-center"
+                style={{ left: `${mMark}%` }}
+              >
+                <div className={`w-3.5 h-3.5 rounded-full border-2 ${
+                  aggregatePercent >= mMark 
+                    ? 'bg-indigo-500 border-indigo-400 dark:border-indigo-600 shadow-sm shadow-indigo-500/20' 
+                    : 'bg-white dark:bg-slate-900 border-slate-300 dark:border-slate-800'
+                }`} />
+                <span className="text-[9px] font-bold font-mono text-slate-450 mt-1.5">{mMark}%</span>
+                <span className="text-[8px] font-medium text-slate-400 max-w-[40px] text-center leading-none mt-0.5">
+                  {mMark === 25 && 'Quarter'}
+                  {mMark === 50 && 'Halfway'}
+                  {mMark === 75 && 'Near'}
+                  {mMark === 100 && 'Vaulted 🏆'}
+                </span>
+              </div>
+            ))}
+
+            {/* Overall aggregate filling trail */}
+            <div 
+              className="absolute left-0 top-0 bottom-0 rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 opacity-20 pointer-events-none"
+              style={{ width: `${Math.min(100, aggregatePercent)}%` }}
+            />
+
+            {/* Individual active Goal bubbles plotted onto the timeline track */}
+            {goals.map((g) => {
+              const gPercent = Math.min(100, g.targetAmount > 0 ? Math.round((g.currentAmount / g.targetAmount) * 100) : 0);
+              return (
+                <div 
+                  key={g.id}
+                  className="absolute top-1/2 -translate-y-1/2 -ml-3 z-20 group"
+                  style={{ left: `${gPercent}%` }}
+                >
+                  <div 
+                    className="w-6 h-6 rounded-full flex items-center justify-center border shadow-md hover:scale-125 transition-all cursor-help relative"
+                    style={{ 
+                      backgroundColor: g.color, 
+                      borderColor: 'rgba(255,255,255,0.4)',
+                      color: '#ffffff'
+                    }}
+                  >
+                    <IconResolver name={g.icon || 'PiggyBank'} className="w-3 h-3" />
+                    
+                    {/* Floating Info Tooltip */}
+                    <div className="absolute hidden group-hover:block bottom-8 left-1/2 -translate-x-1/2 bg-slate-950 text-white p-2.5 rounded-xl shadow-2xl border border-slate-800 z-30 min-w-[140px] text-left">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 mb-0.5">{g.name}</p>
+                      <div className="flex justify-between items-baseline font-mono text-[10px]">
+                        <span>Progress:</span>
+                        <span className="font-bold">{gPercent}%</span>
+                      </div>
+                      <div className="flex justify-between items-baseline font-mono text-[9px] text-slate-300 mt-0.5">
+                        <span>Balance:</span>
+                        <span>{formatCurrency(g.currentAmount)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+          </div>
+        </div>
+
       </div>
 
       {/* Mass Delete Selection Alert Banner */}
@@ -249,13 +423,22 @@ export default function Savings({
                       </div>
                     </div>
 
-                    <button 
-                      onClick={() => setDeleteTarget({ type: 'goal', id: goal.id })}
-                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
-                      title="Delete target"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center gap-0.5">
+                      <button 
+                        onClick={() => openEditModal(goal)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                        title="Edit target details"
+                      >
+                        <Edit2 className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => setDeleteTarget({ type: 'goal', id: goal.id })}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                        title="Delete target"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Milestone status indicator tag */}
@@ -328,9 +511,9 @@ export default function Savings({
             <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-blue-500" />
-                <span>Establish Vault Target</span>
+                <span>{editingGoal ? 'Modify Vault Target' : 'Establish Vault Target'}</span>
               </h3>
-              <button onClick={() => setModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700">
+              <button onClick={() => { setModalOpen(false); setEditingGoal(null); }} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700">
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -431,7 +614,7 @@ export default function Savings({
                 type="submit"
                 className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold hover:shadow-lg hover:shadow-blue-500/15 transition-all cursor-pointer flex items-center justify-center gap-2 mt-4"
               >
-                <span>Establish Target</span>
+                <span>{editingGoal ? 'Save Target Changes' : 'Establish Target'}</span>
               </button>
 
             </form>

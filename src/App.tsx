@@ -104,6 +104,45 @@ export default function App() {
   const [currencySymbol, setCurrencySymbol] = useState('$');
   const [dataLoading, setDataLoading] = useState(false);
 
+  // PWA installation states
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isAppInstalled, setIsAppInstalled] = useState(() => {
+    return window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+  });
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+
+    const handleAppInstalled = () => {
+      setIsAppInstalled(true);
+      setDeferredPrompt(null);
+      setTimeout(() => {
+        awardPoints(150, "PWA Installed! BudgetFlow is now a fully native app! 📱✨");
+      }, 1500);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) {
+      return;
+    }
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`[PWA] Install choice outcome: ${outcome}`);
+    setDeferredPrompt(null);
+  };
+
   // PWA/Network synchronization states
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncQueueLength, setSyncQueueLength] = useState(0);
@@ -945,6 +984,38 @@ export default function App() {
     await updateLocalQueueCount();
   };
 
+  const handleUpdateCategory = async (id: string, updates: any) => {
+    setCategories(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    const localItem = categories.find(c => c.id === id);
+    if (localItem) {
+      await localDb.put('categories', { ...localItem, ...updates });
+    }
+
+    if (isOnline && token) {
+      try {
+        const response = await fetch(`/api/finance/categories/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updates)
+        });
+        if (response.ok) {
+          const result = await response.json();
+          setCategories(prev => prev.map(item => item.id === id ? result.category : item));
+          await localDb.put('categories', result.category);
+          return;
+        }
+      } catch (err) {
+        console.warn('Category update failed on cloud, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('update', 'category', { id, updates });
+    await updateLocalQueueCount();
+  };
+
   // 5. Notifications Mark Read
   const handleMarkNotificationsRead = async (id?: string) => {
     if (id) {
@@ -1126,6 +1197,11 @@ export default function App() {
             onDeleteAccount={handleDeleteAccount}
             currencySymbol={currencySymbol}
             setCurrencySymbol={setCurrencySymbol}
+            isAppInstalled={isAppInstalled}
+            deferredPrompt={deferredPrompt}
+            onInstallApp={handleInstallApp}
+            categories={categories}
+            onUpdateCategory={handleUpdateCategory}
           />
         );
       default:
@@ -1179,52 +1255,62 @@ export default function App() {
       {/* 2. Main content view block */}
       <main className="flex-1 flex flex-col min-h-screen overflow-hidden">
         
-        {/* Mobile top sticky header */}
-        <header className="md:hidden sticky top-0 z-30 flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200/60 dark:border-slate-800/80 shadow-sm transition-colors duration-200">
-          <div className="flex items-center gap-2">
-            <Menu className="w-6 h-6 text-slate-600 dark:text-slate-300 cursor-pointer" onClick={() => setSidebarOpen(true)} />
-            <div className="flex items-center gap-1.5 ml-2">
-              <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
-                <Wallet className="w-4 h-4 text-white" />
+        {/* Mobile top fixed header and offline banner container */}
+        <div className="md:hidden fixed top-0 left-0 right-0 z-30 flex flex-col">
+          <header className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-900 border-b border-slate-200/60 dark:border-slate-800/80 shadow-sm transition-colors duration-200">
+            <div className="flex items-center gap-2">
+              <Menu className="w-6 h-6 text-slate-600 dark:text-slate-300 cursor-pointer" onClick={() => setSidebarOpen(true)} />
+              <div className="flex items-center gap-1.5 ml-2">
+                <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
+                  <Wallet className="w-4 h-4 text-white" />
+                </div>
+                <span className="font-bold text-sm text-slate-900 dark:text-white">BudgetFlow</span>
               </div>
-              <span className="font-bold text-sm text-slate-900 dark:text-white">BudgetFlow</span>
             </div>
-          </div>
-          
-          <div className="flex items-center gap-3">
-            {/* Theme Toggle */}
-            <button 
-              onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
-              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-            >
-              {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
-            </button>
+            
+            <div className="flex items-center gap-3">
+              {/* Theme Toggle */}
+              <button 
+                onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')} 
+                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors cursor-pointer"
+              >
+                {theme === 'light' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+              </button>
 
-            {/* Notifications Dropdown Selector */}
-            <button 
-              onClick={() => setNotificationsOpen(true)} 
-              className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors relative cursor-pointer"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadNotificationsCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center animate-bounce">
-                  {unreadNotificationsCount}
-                </span>
-              )}
-            </button>
-          </div>
-        </header>
+              {/* Notifications Dropdown Selector */}
+              <button 
+                onClick={() => setNotificationsOpen(true)} 
+                className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors relative cursor-pointer"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadNotificationsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-[10px] font-bold text-white flex items-center justify-center animate-bounce">
+                    {unreadNotificationsCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </header>
+          
+          {/* Mobile dynamic network alarm banner if offline (hidden in print) */}
+          {!isOnline && (
+            <div className="bg-amber-500 text-white px-4 py-1.5 text-[10px] font-bold flex items-center justify-center gap-2 shadow-sm no-print">
+              <WifiOff className="w-3.5 h-3.5 text-white" />
+              <span className="truncate">Operating Offline. local queue holds active ledgers.</span>
+            </div>
+          )}
+        </div>
         
-        {/* Dynamic network alarm banner if offline (hidden in print) */}
+        {/* Desktop dynamic network alarm banner if offline (hidden in print) */}
         {!isOnline && (
-          <div className="bg-amber-500 text-white px-4 py-2 text-xs font-bold flex items-center justify-center gap-2 shadow-sm no-print">
+          <div className="hidden md:flex bg-amber-500 text-white px-4 py-2 text-xs font-bold items-center justify-center gap-2 shadow-sm no-print">
             <WifiOff className="w-4 h-4 text-white" />
             <span>Currently Operating Offline. Ledger additions are held locally and automatically queued for synchronization.</span>
           </div>
         )}
 
         {/* Dynamic view component mount */}
-        <div className="flex-1 overflow-y-auto pb-16 md:pb-6">
+        <div className={`flex-1 overflow-y-auto pb-16 md:pb-6 ${isOnline ? 'pt-[56px]' : 'pt-[92px]'} md:pt-0`}>
           {renderView()}
         </div>
 

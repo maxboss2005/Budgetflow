@@ -167,6 +167,17 @@ app.post('/api/finance/categories', authenticateToken, (req, res) => {
   }
 });
 
+app.put('/api/finance/categories/:id', authenticateToken, (req, res) => {
+  try {
+    const user = (req as any).user;
+    const { name, color, icon } = req.body;
+    const updated = db.updateCategory(user.id, req.params.id, { name, color, icon });
+    res.json({ category: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/finance/transactions', authenticateToken, (req, res) => {
   const user = (req as any).user;
   const transactions = db.getTransactions(user.id);

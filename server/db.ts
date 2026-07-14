@@ -183,6 +183,19 @@ export class Database {
     return newCat;
   }
 
+  public updateCategory(userId: string, categoryId: string, updates: Partial<Category>): Category {
+    const idx = this.schema.categories.findIndex(c => c.id === categoryId);
+    if (idx === -1) throw new Error('Category not found');
+
+    const updated = {
+      ...this.schema.categories[idx],
+      ...updates,
+    };
+    this.schema.categories[idx] = updated;
+    this.save();
+    return updated;
+  }
+
   // --- Transaction Operations ---
   public getTransactions(userId: string): Transaction[] {
     return this.schema.transactions
@@ -491,6 +504,9 @@ export class Database {
         } else if (entityType === 'category') {
           if (action === 'create') {
             this.createCategory(userId, payload.name, payload.type, payload.color, payload.icon);
+            syncedCount++;
+          } else if (action === 'update') {
+            this.updateCategory(userId, payload.id, payload.updates || payload);
             syncedCount++;
           }
         }
