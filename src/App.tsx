@@ -484,6 +484,74 @@ export default function App() {
     }
   };
 
+  const handleBackupData = () => {
+    try {
+      const backupObj = {
+        version: "1.0",
+        timestamp: new Date().toISOString(),
+        accounts,
+        debts,
+        transactions,
+        budgets,
+        goals,
+        subscriptions,
+        categories
+      };
+      const jsonStr = JSON.stringify(backupObj, null, 2);
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", url);
+      downloadAnchor.setAttribute("download", `devfint_backup_${new Date().toISOString().split('T')[0]}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      URL.revokeObjectURL(url);
+      awardPoints(50, "Data security backup successfully generated! 🔒💎");
+    } catch (err) {
+      console.error('Backup failure:', err);
+    }
+  };
+
+  const handleRestoreData = async (data: any): Promise<boolean> => {
+    try {
+      if (!data || typeof data !== 'object') return false;
+      const restoredAccounts = Array.isArray(data.accounts) ? data.accounts : [];
+      const restoredDebts = Array.isArray(data.debts) ? data.debts : [];
+      const restoredTransactions = Array.isArray(data.transactions) ? data.transactions : [];
+      const restoredBudgets = Array.isArray(data.budgets) ? data.budgets : [];
+      const restoredGoals = Array.isArray(data.goals) ? data.goals : [];
+      const restoredSubscriptions = Array.isArray(data.subscriptions) ? data.subscriptions : [];
+      const restoredCategories = Array.isArray(data.categories) ? data.categories : [];
+
+      // cacheAll into localDb
+      await localDb.cacheAll(
+        restoredTransactions,
+        restoredBudgets,
+        restoredGoals,
+        restoredSubscriptions,
+        restoredCategories,
+        restoredAccounts,
+        restoredDebts
+      );
+
+      // Populate React States instantly
+      setAccounts(restoredAccounts);
+      setDebts(restoredDebts);
+      setTransactions(restoredTransactions);
+      setBudgets(restoredBudgets);
+      setGoals(restoredGoals);
+      setSubscriptions(restoredSubscriptions);
+      setCategories(restoredCategories);
+
+      awardPoints(150, "Financial data ledger successfully restored from secure backup document! 🌐📈");
+      return true;
+    } catch (err) {
+      console.error('Restore failure:', err);
+      return false;
+    }
+  };
+
   // --- GAMIFICATION / REWARDS SYSTEM ---
   const awardPoints = async (amount: number, reason: string) => {
     if (!user || !token) return;
@@ -1455,6 +1523,8 @@ export default function App() {
             onInstallApp={handleInstallApp}
             categories={categories}
             onUpdateCategory={handleUpdateCategory}
+            onBackupData={handleBackupData}
+            onRestoreData={handleRestoreData}
           />
         );
       default:

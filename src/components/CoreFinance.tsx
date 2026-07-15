@@ -23,7 +23,9 @@ import {
   ShieldCheck, 
   Zap,
   HelpCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Edit,
+  X
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -79,6 +81,13 @@ export default function CoreFinance({
   const [accountType, setAccountType] = useState<'cash' | 'bank' | 'savings' | 'crypto' | 'wallet'>('bank');
   const [accountBalance, setAccountBalance] = useState('');
   const [accountColor, setAccountColor] = useState('#3B82F6');
+
+  // --- Accounts Edit State ---
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [editAccountName, setEditAccountName] = useState('');
+  const [editAccountType, setEditAccountType] = useState<'cash' | 'bank' | 'savings' | 'crypto' | 'wallet'>('bank');
+  const [editAccountBalance, setEditAccountBalance] = useState('');
+  const [editAccountColor, setEditAccountColor] = useState('#3B82F6');
 
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferFrom, setTransferFrom] = useState('');
@@ -170,6 +179,26 @@ export default function CoreFinance({
     setAccountName('');
     setAccountBalance('');
     setAddAccountOpen(false);
+  };
+
+  const startEditAccount = (acc: Account) => {
+    setEditingAccount(acc);
+    setEditAccountName(acc.name);
+    setEditAccountType(acc.type);
+    setEditAccountBalance(acc.balance.toString());
+    setEditAccountColor(acc.color || '#3B82F6');
+  };
+
+  const handleEditAccountSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAccount || !editAccountName || !editAccountBalance) return;
+    onUpdateAccount(editingAccount.id, {
+      name: editAccountName,
+      type: editAccountType,
+      balance: parseFloat(editAccountBalance),
+      color: editAccountColor
+    });
+    setEditingAccount(null);
   };
 
   const handleTransferSubmit = (e: React.FormEvent) => {
@@ -678,18 +707,27 @@ export default function CoreFinance({
                         <p className="text-xl font-black font-mono text-slate-900 dark:text-white">{currencySymbol}{acc.balance.toLocaleString()}</p>
                       </div>
                       
-                      {/* Delete account button */}
-                      <button 
-                        onClick={() => {
-                          if (confirm(`Are you sure you want to remove the ${acc.name} account? Associated seed transactions may lose references.`)) {
-                            onDeleteAccount(acc.id);
-                          }
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-2 text-slate-400 hover:text-red-500 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
-                        title="Delete Account"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Edit & Delete buttons */}
+                      <div className="flex gap-1 items-center opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-all duration-200">
+                        <button 
+                          onClick={() => startEditAccount(acc)}
+                          className="p-1.5 text-slate-400 hover:text-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+                          title="Edit Account"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            if (confirm(`Are you sure you want to remove the ${acc.name} account? Associated seed transactions may lose references.`)) {
+                              onDeleteAccount(acc.id);
+                            }
+                          }}
+                          className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+                          title="Delete Account"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
@@ -786,6 +824,108 @@ export default function CoreFinance({
                 </button>
               </form>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Account Modal */}
+      {editingAccount && (
+        <div className="fixed inset-0 bg-slate-950/40 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in no-print">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-md w-full overflow-hidden shadow-2xl relative p-6 space-y-4">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100 dark:border-slate-800/80">
+              <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center gap-2">
+                <Edit className="w-5 h-5 text-blue-500" />
+                <span>Edit Asset Account</span>
+              </h3>
+              <button 
+                type="button" 
+                onClick={() => setEditingAccount(null)} 
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleEditAccountSubmit} className="space-y-4">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Account Name</label>
+                  <input 
+                    type="text"
+                    required
+                    value={editAccountName}
+                    onChange={e => setEditAccountName(e.target.value)}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-900 dark:text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Account Type</label>
+                  <select 
+                    value={editAccountType}
+                    onChange={e => setEditAccountType(e.target.value as any)}
+                    className="w-full text-xs px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-900 dark:text-white font-medium"
+                  >
+                    <option value="bank">Bank Checking/Debit</option>
+                    <option value="savings">High-Yield Savings</option>
+                    <option value="cash">Hard Cash Wallet</option>
+                    <option value="crypto">Crypto Exchange/Cold wallet</option>
+                    <option value="wallet">Other Digital Wallet</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Account Balance</label>
+                  <input 
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editAccountBalance}
+                    onChange={e => setEditAccountBalance(e.target.value)}
+                    className="w-full text-xs px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-slate-900 dark:text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Visual Theme Color</label>
+                  <div className="flex gap-2 items-center">
+                    <input 
+                      type="color"
+                      value={editAccountColor}
+                      onChange={e => setEditAccountColor(e.target.value)}
+                      className="w-8 h-8 rounded-full border border-slate-300 dark:border-slate-750 cursor-pointer overflow-hidden p-0"
+                    />
+                    <span className="text-xs font-mono text-slate-500">{editAccountColor}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 dark:border-slate-800/80">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm(`Are you sure you want to remove the ${editingAccount.name} account? Associated seed transactions may lose references.`)) {
+                      onDeleteAccount(editingAccount.id);
+                      setEditingAccount(null);
+                    }
+                  }}
+                  className="px-3.5 py-2 text-xs font-bold rounded-xl text-red-600 bg-red-55/10 hover:bg-red-500/10 dark:bg-red-950/20 dark:hover:bg-red-950/30 transition-colors flex items-center gap-1 cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingAccount(null)}
+                  className="px-3.5 py-2 text-xs font-bold rounded-xl text-slate-500 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-450 dark:hover:bg-slate-750 transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-xs font-bold rounded-xl text-white bg-blue-500 hover:bg-blue-600 transition-colors cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

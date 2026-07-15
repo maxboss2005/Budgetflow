@@ -17,6 +17,7 @@ import {
   EyeOff,
   AlertCircle,
   Download,
+  Upload,
   Smartphone,
   Monitor,
   Edit,
@@ -40,6 +41,8 @@ interface SettingsProps {
   onInstallApp: () => Promise<void>;
   categories: Category[];
   onUpdateCategory: (id: string, updates: any) => Promise<void>;
+  onBackupData?: () => void;
+  onRestoreData?: (data: any) => Promise<boolean>;
 }
 
 export default function Settings({
@@ -53,7 +56,9 @@ export default function Settings({
   deferredPrompt,
   onInstallApp,
   categories,
-  onUpdateCategory
+  onUpdateCategory,
+  onBackupData,
+  onRestoreData
 }: SettingsProps) {
 
   // States
@@ -71,6 +76,47 @@ export default function Settings({
   const [editCatName, setEditCatName] = useState('');
   const [editCatColor, setEditCatColor] = useState('');
   const [editCatIcon, setEditCatIcon] = useState('');
+
+  // States and handler for Backup & Restore
+  const [backupSuccess, setBackupSuccess] = useState('');
+  const [backupError, setBackupError] = useState('');
+
+  const handleFileImportChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBackupSuccess('');
+    setBackupError('');
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const jsonContent = event.target?.result as string;
+        const parsed = JSON.parse(jsonContent);
+        if (!parsed || typeof parsed !== 'object') {
+          setBackupError('Invalid backup file. Root must be a JSON object.');
+          return;
+        }
+        if (onRestoreData) {
+          const success = await onRestoreData(parsed);
+          if (success) {
+            setBackupSuccess('Data profile successfully restored from backup! 🚀');
+            setTimeout(() => setBackupSuccess(''), 4500);
+          } else {
+            setBackupError('The data in the backup was rejected or could not be loaded.');
+          }
+        } else {
+          setBackupError('Restore capability is not active on this view.');
+        }
+      } catch (err) {
+        setBackupError('Failed to parse file as valid JSON ledger data.');
+      }
+    };
+    reader.onerror = () => {
+      setBackupError('Could not read the file from storage.');
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Reset selection
+  };
 
   // States for Admin Registered Users list
   const [adminUsers, setAdminUsers] = useState<UserType[]>([]);
@@ -467,6 +513,61 @@ export default function Settings({
                   </div>
                 );
               })}
+            </div>
+          </div>
+
+          {/* Data Backup & Portability Section */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-sm relative overflow-hidden">
+            <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-blue-500/5 dark:bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2 mb-3">
+              <Database className="w-4 h-4 text-blue-500" />
+              <span>Data Portability & Database Backups</span>
+            </h3>
+            <p className="text-xs text-slate-400 mb-5 leading-relaxed">
+              Export your entire user configuration, categorizations, ledger entries, goals, and savings profiles into a portable JSON document. You can restore this file anytime to recover your data or migrate between devices instantly.
+            </p>
+
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <button
+                  onClick={onBackupData}
+                  className="flex-1 px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl shadow-md shadow-blue-550/10 cursor-pointer flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99]"
+                >
+                  <Download className="w-4 h-4" />
+                  <span>Export JSON Backup</span>
+                </button>
+                
+                <button
+                  onClick={() => document.getElementById('backup-upload-input')?.click()}
+                  className="flex-1 px-4 py-2.5 bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 dark:hover:bg-slate-900 text-slate-700 dark:text-slate-300 text-xs font-bold border border-slate-200 dark:border-slate-800 rounded-xl flex items-center justify-center gap-2 transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
+                >
+                  <Upload className="w-4 h-4" />
+                  <span>Restore from Backup</span>
+                </button>
+                
+                <input
+                  type="file"
+                  id="backup-upload-input"
+                  accept=".json"
+                  onChange={handleFileImportChange}
+                  className="hidden"
+                />
+              </div>
+
+              {backupSuccess && (
+                <div className="p-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/10 flex items-center gap-2.5 text-xs text-emerald-600 dark:text-emerald-400 animate-fade-in font-bold">
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                  <span>{backupSuccess}</span>
+                </div>
+              )}
+
+              {backupError && (
+                <div className="p-3.5 rounded-2xl bg-red-500/5 border border-red-500/10 flex items-center gap-2.5 text-xs text-red-500 animate-fade-in font-semibold">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>{backupError}</span>
+                </div>
+              )}
             </div>
           </div>
 
