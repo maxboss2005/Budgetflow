@@ -59,6 +59,7 @@ export interface Budget {
   endDate: string;
   offlineId?: string;    // Temporary local ID
   createdAt?: string;
+  accountId?: string;   // Optional core finance account linkage
 }
 
 export interface SavingsGoal {
@@ -74,6 +75,7 @@ export interface SavingsGoal {
   status?: string;       // Active or Completed status flags
   offlineId?: string;    // Temporary local ID
   createdAt: string;
+  accountId?: string;   // Optional core finance account linkage
 }
 
 export interface Subscription {

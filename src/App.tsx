@@ -881,6 +881,34 @@ export default function App() {
     await updateLocalQueueCount();
   };
 
+  const handleUpdateBudget = async (id: string, updates: any) => {
+    // Update local state first
+    setBudgets(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    const localItem = budgets.find(b => b.id === id);
+    if (localItem) {
+      await localDb.put('budgets', { ...localItem, ...updates });
+    }
+
+    if (isOnline && token && !id.startsWith('b_temp_')) {
+      try {
+        const response = await fetch(`/api/finance/budgets/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updates)
+        });
+        if (response.ok) return;
+      } catch (err) {
+        console.warn('Budget update failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('update', 'budget', { id, updates });
+    await updateLocalQueueCount();
+  };
+
   const handleDeleteBudget = async (id: string) => {
     setBudgets(prev => prev.filter(item => item.id !== id));
     await localDb.delete('budgets', id);
@@ -1485,7 +1513,9 @@ export default function App() {
             categories={categories}
             transactions={transactions}
             currencySymbol={currencySymbol}
+            accounts={accounts}
             onAddBudget={handleAddBudget}
+            onUpdateBudget={handleUpdateBudget}
             onDeleteBudget={handleDeleteBudget}
           />
         );

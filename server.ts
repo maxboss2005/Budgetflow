@@ -316,12 +316,22 @@ app.get('/api/finance/budgets', authenticateToken, (req, res) => {
 app.post('/api/finance/budgets', authenticateToken, (req, res) => {
   try {
     const user = (req as any).user;
-    const { categoryId, amount, period, startDate, endDate } = req.body;
+    const { categoryId, amount, period, startDate, endDate, accountId } = req.body;
     if (!categoryId || !amount || !period || !startDate || !endDate) {
       return res.status(400).json({ error: 'Missing budget configuration' });
     }
-    const newBudget = db.createBudget(user.id, { categoryId, amount, period, startDate, endDate });
+    const newBudget = db.createBudget(user.id, { categoryId, amount, period, startDate, endDate, accountId });
     res.status(201).json({ budget: newBudget });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/finance/budgets/:id', authenticateToken, (req, res) => {
+  try {
+    const user = (req as any).user;
+    const updated = db.updateBudget(user.id, req.params.id, req.body);
+    res.json({ budget: updated });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

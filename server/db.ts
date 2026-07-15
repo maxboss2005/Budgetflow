@@ -324,6 +324,20 @@ export class Database {
     return newBudget;
   }
 
+  public updateBudget(userId: string, budgetId: string, updates: Partial<Budget>): Budget {
+    const idx = this.schema.budgets.findIndex(b => b.id === budgetId && b.userId === userId);
+    if (idx === -1) throw new Error('Budget not found');
+
+    const updated = {
+      ...this.schema.budgets[idx],
+      ...updates,
+      userId,
+    };
+    this.schema.budgets[idx] = updated;
+    this.save();
+    return updated;
+  }
+
   public deleteBudget(userId: string, budgetId: string): boolean {
     const originalLength = this.schema.budgets.length;
     this.schema.budgets = this.schema.budgets.filter(b => !(b.id === budgetId && b.userId === userId));
@@ -588,6 +602,12 @@ export class Database {
               offlineId: payload.id
             } as any);
             syncedCount++;
+          } else if (action === 'update') {
+            const dbBudget = this.schema.budgets.find(b => b.userId === userId && (b.id === payload.id || b.offlineId === payload.id));
+            if (dbBudget) {
+              this.updateBudget(userId, dbBudget.id, payload.updates || payload);
+              syncedCount++;
+            }
           } else if (action === 'delete') {
             const dbBudget = this.schema.budgets.find(b => b.userId === userId && (b.id === payload.id || b.offlineId === payload.id));
             if (dbBudget) {

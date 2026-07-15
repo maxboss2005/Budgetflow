@@ -17,7 +17,8 @@ import {
   Coins,
   Sliders,
   Shuffle,
-  Check
+  Check,
+  Edit2
 } from 'lucide-react';
 import { Budget, Category, Transaction } from '../types';
 import { IconResolver } from './Dashboard';
@@ -27,7 +28,9 @@ interface BudgetsProps {
   categories: Category[];
   transactions: Transaction[];
   currencySymbol: string;
+  accounts?: any[];
   onAddBudget: (budget: any) => void;
+  onUpdateBudget?: (id: string, updates: any) => void;
   onDeleteBudget: (id: string) => void;
 }
 
@@ -36,7 +39,9 @@ export default function Budgets({
   categories,
   transactions,
   currencySymbol,
+  accounts = [],
   onAddBudget,
+  onUpdateBudget,
   onDeleteBudget
 }: BudgetsProps) {
 
@@ -45,6 +50,8 @@ export default function Budgets({
   const [categoryId, setCategoryId] = useState('all');
   const [amount, setAmount] = useState('');
   const [period, setPeriod] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [accountId, setAccountId] = useState('');
 
   // Custom Delete State
   const [deleteTarget, setDeleteTarget] = useState<{ type: string; id: string } | null>(null);
@@ -188,17 +195,43 @@ export default function Budgets({
     else if (period === 'weekly') endDate.setDate(now.getDate() + 7);
     else endDate.setMonth(now.getMonth() + 1);
 
-    const payload = {
+    const payload: any = {
       categoryId,
       amount: parsedAmount,
       period,
       startDate,
-      endDate: endDate.toISOString().split('T')[0]
+      endDate: endDate.toISOString().split('T')[0],
+      accountId: accountId || undefined
     };
 
-    onAddBudget(payload);
+    if (editingBudget && onUpdateBudget) {
+      onUpdateBudget(editingBudget.id, payload);
+    } else {
+      onAddBudget(payload);
+    }
+    
     setModalOpen(false);
     setAmount('');
+    setAccountId('');
+    setEditingBudget(null);
+  };
+
+  const handleOpenAddModal = () => {
+    setEditingBudget(null);
+    setCategoryId('all');
+    setAmount('');
+    setPeriod('monthly');
+    setAccountId('');
+    setModalOpen(true);
+  };
+
+  const handleOpenEditModal = (budget: Budget) => {
+    setEditingBudget(budget);
+    setCategoryId(budget.categoryId);
+    setAmount(budget.amount.toString());
+    setPeriod(budget.period);
+    setAccountId(budget.accountId || '');
+    setModalOpen(true);
   };
 
   const formatCurrency = (val: number) => {
@@ -223,7 +256,7 @@ export default function Budgets({
 
         {activeTab === 'limits' && (
           <button 
-            onClick={() => setModalOpen(true)}
+            onClick={handleOpenAddModal}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold hover:shadow-lg hover:shadow-blue-500/15 transition-all cursor-pointer self-start"
           >
             <Plus className="w-4 h-4" />
@@ -302,13 +335,22 @@ export default function Budgets({
                         </div>
                       </div>
 
-                      <button 
-                        onClick={() => setDeleteTarget({ type: 'budget', id: budget.id })}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
-                        title="Remove budget"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button 
+                          onClick={() => handleOpenEditModal(budget)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                          title="Edit budget"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button 
+                          onClick={() => setDeleteTarget({ type: 'budget', id: budget.id })}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all cursor-pointer"
+                          title="Remove budget"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Progress Circle & Metrics Row */}
@@ -321,6 +363,12 @@ export default function Budgets({
                         <p className="text-[10px] text-slate-400">
                           Spent {formatCurrency(spent)} of {formatCurrency(budget.amount)}
                         </p>
+                        {budget.accountId && (
+                          <div className="mt-1 text-[10px] text-blue-500 dark:text-blue-400 font-semibold flex items-center gap-1">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                            Linked: {accounts.find(a => a.id === budget.accountId)?.name || 'External'}
+                          </div>
+                        )}
                       </div>
 
                       {/* Absolute visual gauge */}
@@ -693,7 +741,7 @@ export default function Budgets({
             <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <h3 className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-blue-500" />
-                <span>Establish Limit Cap</span>
+                <span>{editingBudget ? 'Modify Limit Cap' : 'Establish Limit Cap'}</span>
               </h3>
               <button onClick={() => setModalOpen(false)} className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700">
                 <X className="w-5 h-5" />
@@ -753,12 +801,30 @@ export default function Budgets({
                 </div>
               </div>
 
+              {/* Linked Account */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Linked Account (Core Finance)</label>
+                <select
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                >
+                  <option value="">None (Cash / External)</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.name} ({currencySymbol}{acc.balance})</option>
+                  ))}
+                </select>
+                <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">
+                  You can establish this limit now and link an account later when you have one in Core Finance.
+                </p>
+              </div>
+
               {/* Modal action */}
               <button
                 type="submit"
                 className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold hover:shadow-lg hover:shadow-blue-500/15 transition-all cursor-pointer flex items-center justify-center gap-2 mt-4"
               >
-                <span>Establish Limit Cap</span>
+                <span>{editingBudget ? 'Save Changes' : 'Establish Limit Cap'}</span>
               </button>
 
             </form>
