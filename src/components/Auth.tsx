@@ -362,7 +362,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 <span>Workspace Sandboxed Demo Credentials</span>
               </div>
               <p className="text-[11px] text-slate-400 text-center leading-relaxed max-w-[280px]">
-                Enter <strong className="text-slate-700 dark:text-slate-300 font-mono">user@budgetflow.com</strong> with security key <strong className="text-slate-700 dark:text-slate-300 font-mono">password123</strong> to launch immediate pre-populated demo records.
+                Enter <strong className="text-slate-700 dark:text-slate-300 font-mono">user@devfint.com</strong> with security key <strong className="text-slate-700 dark:text-slate-300 font-mono">password123</strong> to launch immediate pre-populated demo records.
               </p>
             </div>
           </div>

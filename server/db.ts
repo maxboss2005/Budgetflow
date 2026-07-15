@@ -723,12 +723,12 @@ export class Database {
   // --- Seed Data Setup ---
   private ensureSeedData() {
     // If we have no users, we create the pre-populated premium user account
-    const demoEmail = 'user@budgetflow.com';
+    const demoEmail = 'user@devfint.com';
     let demoUser = this.findUserByEmail(demoEmail);
 
     if (!demoUser) {
-      console.log('Seeding database with premium demo account user@budgetflow.com (password123)...');
-      demoUser = this.createUser(demoEmail, 'password123', 'John Doe');
+      console.log('Seeding database with premium demo account user@devfint.com (password123)...');
+      demoUser = this.createUser(demoEmail, 'password123', 'Test User');
       const userId = demoUser.id;
       
       this.updateUser(userId, {

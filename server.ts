@@ -1210,7 +1210,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`BudgetFlow Full-Stack Server boot complete.`);
+    console.log(`DevFint Full-Stack Server boot complete.`);
     console.log(`Service addressable locally on port ${PORT}`);
   });
 }

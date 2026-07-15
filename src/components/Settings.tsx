@@ -417,7 +417,7 @@ export default function Settings({
                               className="w-full px-2.5 py-1.5 text-xs rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium"
                             >
                               <option value="Briefcase">💼 Salary (Briefcase)</option>
-                              <option value="Laptop">💻 Freelance (Laptop)</option>
+                              <option value="Laptop">💻  (Laptop)</option>
                               <option value="Utensils">🍴 Food (Utensils)</option>
                               <option value="Car">🚗 Transport (Car)</option>
                               <option value="ShoppingBag">🛍️ Shopping (ShoppingBag)</option>
