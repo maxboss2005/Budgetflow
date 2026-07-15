@@ -235,7 +235,7 @@ export default function CoreFinance({
     }
 
     // Record transfer transaction
-    // Let's find/create a category or use cat-bills/transfer. Default default is salary//all.
+    // Let's find/create a category or use cat-bills/transfer. Default default is salary/freelance/all.
     // Let's associate cat-transfer or categoryId "all"
     const transferCat = categories.find(c => c.name.toLowerCase().includes('transfer')) || categories[0];
 
