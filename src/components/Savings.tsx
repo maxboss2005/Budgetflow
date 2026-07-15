@@ -24,6 +24,9 @@ import { IconResolver } from './Dashboard';
 interface SavingsProps {
   goals: SavingsGoal[];
   currencySymbol: string;
+  accounts?: any[];
+  categories?: any[];
+  onAddTransaction?: (tx: any) => void;
   onAddGoal: (goal: any) => void;
   onUpdateGoal: (id: string, updates: any) => void;
   onDeleteGoal: (id: string) => void;
@@ -32,6 +35,9 @@ interface SavingsProps {
 export default function Savings({
   goals,
   currencySymbol,
+  accounts = [],
+  categories = [],
+  onAddTransaction,
   onAddGoal,
   onUpdateGoal,
   onDeleteGoal
@@ -55,6 +61,7 @@ export default function Savings({
   const [selectedGoal, setSelectedGoal] = useState<SavingsGoal | null>(null);
   const [adjustType, setAdjustType] = useState<'deposit' | 'withdraw'>('deposit');
   const [adjustAmount, setAdjustAmount] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState('');
 
   // Modal State for Editing goal
   const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
@@ -146,8 +153,26 @@ export default function Savings({
     };
 
     onUpdateGoal(selectedGoal.id, updates);
+
+    // If an account is selected, log a corresponding transaction to deduct/add balance
+    if (selectedAccountId && onAddTransaction) {
+      const targetType = adjustType === 'deposit' ? 'expense' : 'income';
+      const cat = categories.find(c => c.type === targetType && c.name.toLowerCase().includes('saving')) ||
+                  categories.find(c => c.type === targetType);
+      
+      onAddTransaction({
+        amount: parsedAdjust,
+        type: targetType,
+        categoryId: cat?.id || '',
+        date: new Date().toISOString().split('T')[0],
+        notes: `${adjustType === 'deposit' ? 'Allocation to' : 'Withdrawal from'} savings goal: ${selectedGoal.name}`,
+        accountId: selectedAccountId
+      });
+    }
+
     setAdjustModalOpen(false);
     setAdjustAmount('');
+    setSelectedAccountId('');
     setSelectedGoal(null);
   };
 
@@ -682,13 +707,32 @@ export default function Savings({
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Adjustment value</label>
                 <input
-                  type="number"
-                  required
-                  value={adjustAmount}
-                  onChange={(e) => setAdjustAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                   type="number"
+                   required
+                   value={adjustAmount}
+                   onChange={(e) => setAdjustAmount(e.target.value)}
+                   placeholder="0.00"
+                   className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                 />
+              </div>
+
+              {/* Linked Account */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">
+                  {adjustType === 'deposit' ? 'Funding Source Account (Deduct)' : 'Destination Account (Add)'}
+                </label>
+                <select
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                >
+                  <option value="">None (Cash / External)</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.name} ({currencySymbol}{acc.balance})
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Submit */}

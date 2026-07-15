@@ -452,7 +452,7 @@ export class Database {
 
   // --- Account Operations ---
   public getAccounts(userId: string): Account[] {
-    return this.schema.accounts || [];
+    return (this.schema.accounts || []).filter(a => a.userId === userId);
   }
 
   public createAccount(userId: string, account: Omit<Account, 'id' | 'userId' | 'createdAt'>): Account {
@@ -495,7 +495,7 @@ export class Database {
 
   // --- Debt Operations ---
   public getDebts(userId: string): Debt[] {
-    return this.schema.debts || [];
+    return (this.schema.debts || []).filter(d => d.userId === userId);
   }
 
   public createDebt(userId: string, debt: Omit<Debt, 'id' | 'userId' | 'createdAt'>): Debt {
@@ -644,6 +644,48 @@ export class Database {
           } else if (action === 'update') {
             this.updateCategory(userId, payload.id, payload.updates || payload);
             syncedCount++;
+          }
+        } else if (entityType === 'account') {
+          if (action === 'create') {
+            const { id, isSynced, offlineId, ...cleanPayload } = payload;
+            this.createAccount(userId, {
+              ...cleanPayload,
+              offlineId: payload.id
+            } as any);
+            syncedCount++;
+          } else if (action === 'update') {
+            const dbAcc = this.schema.accounts.find(a => a.userId === userId && (a.id === payload.id || a.offlineId === payload.id));
+            if (dbAcc) {
+              this.updateAccount(userId, dbAcc.id, payload.updates || payload);
+              syncedCount++;
+            }
+          } else if (action === 'delete') {
+            const dbAcc = this.schema.accounts.find(a => a.userId === userId && (a.id === payload.id || a.offlineId === payload.id));
+            if (dbAcc) {
+              this.deleteAccount(userId, dbAcc.id);
+              syncedCount++;
+            }
+          }
+        } else if (entityType === 'debt') {
+          if (action === 'create') {
+            const { id, isSynced, offlineId, ...cleanPayload } = payload;
+            this.createDebt(userId, {
+              ...cleanPayload,
+              offlineId: payload.id
+            } as any);
+            syncedCount++;
+          } else if (action === 'update') {
+            const dbDebt = this.schema.debts.find(d => d.userId === userId && (d.id === payload.id || d.offlineId === payload.id));
+            if (dbDebt) {
+              this.updateDebt(userId, dbDebt.id, payload.updates || payload);
+              syncedCount++;
+            }
+          } else if (action === 'delete') {
+            const dbDebt = this.schema.debts.find(d => d.userId === userId && (d.id === payload.id || d.offlineId === payload.id));
+            if (dbDebt) {
+              this.deleteDebt(userId, dbDebt.id);
+              syncedCount++;
+            }
           }
         }
       } catch (err) {

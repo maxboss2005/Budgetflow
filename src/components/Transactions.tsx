@@ -26,6 +26,7 @@ import FileImport from './FileImport';
 interface TransactionsProps {
   transactions: Transaction[];
   categories: Category[];
+  accounts?: any[];
   currencySymbol: string;
   onAddTransaction: (tx: any) => void;
   onUpdateTransaction: (id: string, updates: any) => void;
@@ -38,6 +39,7 @@ interface TransactionsProps {
 export default function Transactions({
   transactions,
   categories,
+  accounts = [],
   currencySymbol,
   onAddTransaction,
   onUpdateTransaction,
@@ -75,6 +77,8 @@ export default function Transactions({
   const [recurrenceRule, setRecurrenceRule] = useState<'weekly' | 'monthly' | 'yearly'>('monthly');
   const [receiptBase64, setReceiptBase64] = useState('');
   const [receiptName, setReceiptName] = useState('');
+  const [accountId, setAccountId] = useState('');
+  const [toAccountId, setToAccountId] = useState('');
 
   // Drag and drop ref
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -140,6 +144,8 @@ export default function Transactions({
     setRecurrenceRule('monthly');
     setReceiptBase64('');
     setReceiptName('');
+    setAccountId('');
+    setToAccountId('');
     setModalOpen(true);
   };
 
@@ -154,6 +160,8 @@ export default function Transactions({
     setRecurrenceRule(tx.recurrenceRule || 'monthly');
     setReceiptBase64(tx.receiptUrl || '');
     setReceiptName(tx.receiptUrl ? 'Attached_Receipt.png' : '');
+    setAccountId(tx.accountId || '');
+    setToAccountId(tx.toAccountId || '');
     setModalOpen(true);
   };
 
@@ -173,7 +181,9 @@ export default function Transactions({
       notes: notes.trim(),
       isRecurring,
       recurrenceRule: isRecurring ? recurrenceRule : undefined,
-      receiptUrl: receiptBase64 || undefined
+      receiptUrl: receiptBase64 || undefined,
+      accountId: accountId || undefined,
+      toAccountId: toAccountId || undefined
     };
 
     if (editingTx) {
@@ -622,6 +632,21 @@ export default function Transactions({
                 >
                   {categories.filter(c => c.type === type).map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Linked Account */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Linked Account (Core Finance)</label>
+                <select
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                >
+                  <option value="">None (Cash / External)</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.name} ({currencySymbol}{acc.balance})</option>
                   ))}
                 </select>
               </div>

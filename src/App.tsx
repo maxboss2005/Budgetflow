@@ -177,6 +177,7 @@ export default function App() {
   const [globalTxCategoryId, setGlobalTxCategoryId] = useState('');
   const [globalTxDate, setGlobalTxDate] = useState(new Date().toISOString().split('T')[0]);
   const [globalTxNotes, setGlobalTxNotes] = useState('');
+  const [globalTxAccountId, setGlobalTxAccountId] = useState('');
 
   // --- Theme Toggle Side-effects ---
   useEffect(() => {
@@ -656,6 +657,30 @@ export default function App() {
 
   // --- LEDGER OPERATIONS ---
 
+  const adjustLocalAccountBalance = async (accountId: string | undefined, amount: number) => {
+    if (!accountId) return;
+    setAccounts(prev => prev.map(acc => {
+      if (acc.id === accountId) {
+        const nextBalance = Number((acc.balance + amount).toFixed(2));
+        localDb.put('accounts', { ...acc, balance: nextBalance }).catch(e => console.error(e));
+        return { ...acc, balance: nextBalance };
+      }
+      return acc;
+    }));
+  };
+
+  const processLocalTransactionEffect = async (tx: any, factor: 1 | -1) => {
+    const amount = Number(tx.amount) * factor;
+    if (tx.type === 'income') {
+      await adjustLocalAccountBalance(tx.accountId, amount);
+    } else if (tx.type === 'expense') {
+      await adjustLocalAccountBalance(tx.accountId, -amount);
+    } else if (tx.type === 'transfer') {
+      await adjustLocalAccountBalance(tx.accountId, -amount);
+      await adjustLocalAccountBalance(tx.toAccountId, amount);
+    }
+  };
+
   // 1. Transactions
   const handleAddTransaction = async (tx: any) => {
     const tempId = 'tx_temp_' + Math.random().toString(36).substring(2, 9);
@@ -676,7 +701,9 @@ export default function App() {
       recurrenceRule: tx.recurrenceRule,
       receiptUrl: tx.receiptUrl,
       isSynced: false,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      accountId: tx.accountId,
+      toAccountId: tx.toAccountId
     };
 
     // Calculate daily streak bonus
@@ -686,6 +713,7 @@ export default function App() {
     // Update Local States first
     setTransactions(prev => [fullTx, ...prev]);
     await localDb.put('transactions', fullTx);
+    await processLocalTransactionEffect(fullTx, 1);
     awardPoints(25, `Logged expense: ${fullTx.categoryName}`);
 
     // Check if this is the first transaction of today, and extends or starts a streak
@@ -746,10 +774,13 @@ export default function App() {
 
   const handleUpdateTransaction = async (id: string, updates: any) => {
     // Update Local States first
-    setTransactions(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
     const localItem = transactions.find(t => t.id === id);
     if (localItem) {
-      await localDb.put('transactions', { ...localItem, ...updates });
+      await processLocalTransactionEffect(localItem, -1);
+      const updatedTx = { ...localItem, ...updates };
+      setTransactions(prev => prev.map(item => item.id === id ? updatedTx : item));
+      await localDb.put('transactions', updatedTx);
+      await processLocalTransactionEffect(updatedTx, 1);
     }
 
     if (isOnline && token && !id.startsWith('tx_temp_')) {
@@ -779,6 +810,10 @@ export default function App() {
   };
 
   const handleDeleteTransaction = async (id: string) => {
+    const localItem = transactions.find(t => t.id === id);
+    if (localItem) {
+      await processLocalTransactionEffect(localItem, -1);
+    }
     setTransactions(prev => prev.filter(item => item.id !== id));
     await localDb.delete('transactions', id);
 
@@ -1343,6 +1378,7 @@ export default function App() {
     setGlobalTxCategoryId(firstCat?.id || '');
     setGlobalTxDate(new Date().toISOString().split('T')[0]);
     setGlobalTxNotes('');
+    setGlobalTxAccountId(accounts[0]?.id || '');
     setGlobalTxModalOpen(true);
   };
 
@@ -1360,12 +1396,14 @@ export default function App() {
       type: globalTxType,
       categoryId: globalTxCategoryId,
       date: globalTxDate,
-      notes: globalTxNotes.trim()
+      notes: globalTxNotes.trim(),
+      accountId: globalTxAccountId || undefined
     });
 
     // Reset fields
     setGlobalTxAmount('');
     setGlobalTxNotes('');
+    setGlobalTxAccountId('');
     setGlobalTxModalOpen(false);
   };
 
@@ -1430,6 +1468,7 @@ export default function App() {
           <Transactions
             transactions={transactions}
             categories={categories}
+            accounts={accounts}
             currencySymbol={currencySymbol}
             onAddTransaction={handleAddTransaction}
             onUpdateTransaction={handleUpdateTransaction}
@@ -1466,6 +1505,9 @@ export default function App() {
           <Savings
             goals={goals}
             currencySymbol={currencySymbol}
+            accounts={accounts}
+            categories={categories}
+            onAddTransaction={handleAddTransaction}
             onAddGoal={handleAddGoal}
             onUpdateGoal={handleUpdateGoal}
             onDeleteGoal={handleDeleteGoal}
@@ -1739,6 +1781,21 @@ export default function App() {
                 >
                   {categories.filter(c => c.type === globalTxType).map(c => (
                     <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Linked Account */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Linked Account (Core Finance)</label>
+                <select
+                  value={globalTxAccountId}
+                  onChange={(e) => setGlobalTxAccountId(e.target.value)}
+                  className="w-full px-3 py-2 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                >
+                  <option value="">None (Cash / External)</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.name} ({currencySymbol}{acc.balance})</option>
                   ))}
                 </select>
               </div>

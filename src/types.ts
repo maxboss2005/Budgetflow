@@ -117,6 +117,7 @@ export interface Account {
   balance: number;
   color?: string; // Optional hex or Tailwind color class
   createdAt: string;
+  offlineId?: string;
 }
 
 export interface Debt {
@@ -130,4 +131,5 @@ export interface Debt {
   minMonthlyPayment: number;
   dueDate?: string; // YYYY-MM-DD
   createdAt: string;
+  offlineId?: string;
 }
