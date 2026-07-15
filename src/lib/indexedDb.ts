@@ -1,6 +1,6 @@
 import { SyncQueueItem, Transaction, Budget, SavingsGoal, Subscription, Category } from '../types';
 
-const DB_NAME = 'budgetflow_indexeddb';
+const DB_NAME = 'devfint_indexeddb';
 const DB_VERSION = 1;
 
 export class LocalDatabase {

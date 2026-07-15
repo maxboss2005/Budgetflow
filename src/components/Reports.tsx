@@ -95,7 +95,7 @@ export default function Reports({
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `BudgetFlow_Audit_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `DevFint_Audit_Report_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link); // Required for FF
     link.click();
     document.body.removeChild(link);
@@ -136,7 +136,7 @@ export default function Reports({
 
       {/* PRINT-ONLY HEADER HEADER (Only visible during print) */}
       <div className="hidden print:block space-y-2 border-b border-slate-200 pb-6">
-        <h1 className="text-4xl font-extrabold text-slate-950 font-sans">BudgetFlow Statement of Accounts</h1>
+        <h1 className="text-4xl font-extrabold text-slate-950 font-sans">DevFint Statement of Accounts</h1>
         <p className="text-xs text-slate-400 font-mono">REPORT GENERATED: {new Date().toLocaleDateString()} | CLASSIFICATION: CONFIDENTIAL FINANCIAL AUDIT</p>
       </div>
 

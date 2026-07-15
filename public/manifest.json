@@ -1,7 +1,7 @@
 {
-  "short_name": "BudgetFlow",
-  "name": "BudgetFlow Smart Wealth SaaS",
-  "description": "An intelligent personal finance platform with real-time analytics, budgeting, and AI insights.",
+  "short_name": "DevFint",
+  "name": "DevFint Smart Wealth SaaS",
+  "description": "DevFint is an intelligent personal finance platform with real-time analytics, budgeting, and AI-powered financial insights.",
   "icons": [
     {
       "src": "/icon-192.png",

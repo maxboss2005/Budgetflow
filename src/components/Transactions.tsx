@@ -361,7 +361,24 @@ export default function Transactions({
           </div>
         )}
 
-        {paginatedTransactions.length > 0 ? (
+        {transactions.length === 0 ? (
+          <div className="py-20 text-center max-w-sm mx-auto">
+            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/10 rounded-2xl flex items-center justify-center mx-auto mb-5 text-blue-500 shadow-sm animate-pulse">
+              <Plus className="w-8 h-8" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">Your Ledger is Empty</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+              Log transactions manually or import a statement to see real-time cashflow analytics, budgets, and automated smart insights.
+            </p>
+            <button
+              onClick={openAddModal}
+              className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/15 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Your First Transaction</span>
+            </button>
+          </div>
+        ) : paginatedTransactions.length > 0 ? (
           <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
             <table className="w-full text-left border-collapse min-w-[640px] sm:min-w-0">
               <thead>

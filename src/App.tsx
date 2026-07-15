@@ -133,7 +133,7 @@ export default function App() {
       setDeferredPrompt(null);
       (window as any).clearDeferredInstallPrompt?.();
       setTimeout(() => {
-        awardPoints(150, "PWA Installed! BudgetFlow is now a fully native app! 📱✨");
+        awardPoints(150, "PWA Installed! DevFint is now a fully native app! 📱✨");
       }, 1500);
     };
 
@@ -1266,6 +1266,8 @@ export default function App() {
         setIsOpen={setSidebarOpen}
         isCollapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+        deferredPrompt={deferredPrompt}
+        onInstallApp={handleInstallApp}
       />
 
       {/* 2. Main content view block */}
@@ -1280,7 +1282,7 @@ export default function App() {
                 <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center">
                   <Wallet className="w-4 h-4 text-white" />
                 </div>
-                <span className="font-bold text-sm text-slate-900 dark:text-white">BudgetFlow</span>
+                <span className="font-bold text-sm text-slate-900 dark:text-white">DevFint</span>
               </div>
             </div>
             

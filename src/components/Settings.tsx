@@ -218,7 +218,9 @@ export default function Settings({
       action: () => {
         localStorage.clear();
         // Drop IndexedDB
-        const req = indexedDB.deleteDatabase('BudgetFlowDB');
+        indexedDB.deleteDatabase('BudgetFlowDB');
+        indexedDB.deleteDatabase('budgetflow_indexeddb');
+        const req = indexedDB.deleteDatabase('devfint_indexeddb');
         req.onsuccess = () => {
           setSuccessMsg('Local cache dropped. Reloading workspace...');
           setTimeout(() => {
@@ -477,7 +479,7 @@ export default function Settings({
               <span>Native Desktop & Mobile App</span>
             </h3>
             <p className="text-xs text-slate-400 mb-5 leading-relaxed">
-              Install BudgetFlow directly to your system dock, desktop, or mobile home screen. Enjoy complete offline access, quick launcher shortcuts, and native application styling.
+              Install DevFint directly to your system dock, desktop, or mobile home screen. Enjoy complete offline access, quick launcher shortcuts, and native application styling.
             </p>
 
             {isAppInstalled ? (
@@ -487,7 +489,7 @@ export default function Settings({
                 </div>
                 <div>
                   <span className="text-xs font-extrabold uppercase tracking-widest text-emerald-500">PWA STATUS: INSTALLED</span>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">BudgetFlow is running as a native standalone system application. Performance optimization active.</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">DevFint is running as a native standalone system application. Performance optimization active.</p>
                 </div>
               </div>
             ) : (
@@ -498,7 +500,7 @@ export default function Settings({
                     <div className="flex items-start gap-2">
                       <Info className="w-4.5 h-4.5 text-blue-500 shrink-0 mt-0.5" />
                       <p className="text-[11px] leading-relaxed">
-                        <strong>Preview Mode Active:</strong> Open BudgetFlow in a standalone window to enable instant 1-click home screen install.
+                        <strong>Preview Mode Active:</strong> Open DevFint in a standalone window to enable instant 1-click home screen install.
                       </p>
                     </div>
                     <button
@@ -517,8 +519,8 @@ export default function Settings({
                         <Sparkles className="w-3 h-3 text-amber-500" />
                         <span>150 XP BONUS</span>
                       </span>
-                      <p className="text-xs font-bold text-slate-900 dark:text-white">BudgetFlow is installable!</p>
-                      <p className="text-[11px] text-slate-450">Click below to install BudgetFlow as a native app on your home screen or dock.</p>
+                      <p className="text-xs font-bold text-slate-900 dark:text-white">DevFint is installable!</p>
+                      <p className="text-[11px] text-slate-450">Click below to install DevFint as a native app on your home screen or dock.</p>
                     </div>
                     <button
                       onClick={onInstallApp}
@@ -535,7 +537,7 @@ export default function Settings({
                       <span>Install on Your Device</span>
                     </p>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                      You can run BudgetFlow as a lightweight native application directly on your phone, tablet, or desktop. Use the easy step-by-step instructions below!
+                      You can run DevFint as a lightweight native application directly on your phone, tablet, or desktop. Use the easy step-by-step instructions below!
                     </p>
                   </div>
                 )}
@@ -692,7 +694,7 @@ export default function Settings({
                   <Sparkles className="w-4 h-4 text-purple-500 animate-bounce" />
                   <span>How is Gemini configured?</span>
                 </div>
-                <p>BudgetFlow triggers the Google Gemini SDK completely <strong>server-side</strong> to protect API secrets.</p>
+                <p>DevFint triggers the Google Gemini SDK completely <strong>server-side</strong> to protect API secrets.</p>
                 <p>The system utilizes the <strong>GEMINI_API_KEY</strong> environment variable declared inside your workspace secrets manager.</p>
                 <div className="pt-1.5 text-[10px] font-bold text-slate-400 uppercase">Configuration Checklist:</div>
                 <ol className="list-decimal pl-4 text-[11px] text-slate-500 space-y-1">

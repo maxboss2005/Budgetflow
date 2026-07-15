@@ -475,9 +475,25 @@ export default function Subscriptions({
             ))}
           </div>
         </div>
-
         {/* Subscription cards list */}
-        {filteredSubs.length > 0 ? (
+        {subscriptions.length === 0 ? (
+          <div className="py-16 text-center max-w-sm mx-auto">
+            <div className="w-16 h-16 bg-blue-50 dark:bg-blue-900/10 rounded-2xl flex items-center justify-center mx-auto mb-5 text-blue-500 shadow-sm animate-pulse">
+              <CalendarDays className="w-8 h-8" />
+            </div>
+            <h3 className="text-base font-bold text-slate-900 dark:text-white">No active subscriptions registered</h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+              Register your software licenses, utility plans, and repeating bills to track monthly renewals and receive dynamic alerts.
+            </p>
+            <button 
+              onClick={openAddModal}
+              className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/15 cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Register Your First Bill</span>
+            </button>
+          </div>
+        ) : filteredSubs.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredSubs.map((sub) => {
               const daysLeft = Math.ceil((new Date(sub.nextBillingDate).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
@@ -535,7 +551,7 @@ export default function Subscriptions({
                       {/* Toggle status: Cancel or Re-Activate */}
                       <button
                         onClick={() => handleToggleStatus(sub)}
-                        className={`p-1.5 rounded-lg border transition-all cursor-pointer ${isCancelled ? 'text-emerald-500 hover:bg-emerald-50 border-emerald-500/20' : 'text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 border-slate-200 dark:border-slate-800'}`}
+                        className={`p-1.5 rounded-lg border transition-all cursor-pointer ${isCancelled ? 'text-emerald-500 hover:bg-emerald-50 border-emerald-500/20' : 'text-slate-400 hover:text-red-500 hover:bg-red-550/10 dark:hover:bg-red-950/20 border-slate-200 dark:border-slate-800'}`}
                         title={isCancelled ? 'Activate Subscription' : 'Cancel Subscription'}
                       >
                         <Power className="w-3.5 h-3.5" />
@@ -567,7 +583,7 @@ export default function Subscriptions({
           </div>
         ) : (
           <div className="py-16 text-center text-slate-400">
-            <RefreshCw className="w-12 h-12 stroke-1 text-slate-200 mb-2.5 mx-auto" />
+            <RefreshCw className="w-12 h-12 stroke-1 text-slate-200 mb-2.5 mx-auto animate-spin animate-duration-[4s]" />
             <span className="text-sm">No recurring schedules found matching selected parameters.</span>
           </div>
         )}

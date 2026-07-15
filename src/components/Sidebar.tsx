@@ -20,7 +20,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Trophy
+  Trophy,
+  Download
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -41,6 +42,8 @@ interface SidebarProps {
   setIsOpen: (open: boolean) => void;
   isCollapsed: boolean;
   onToggleCollapse: () => void;
+  deferredPrompt?: any;
+  onInstallApp?: () => void;
 }
 
 export default function Sidebar({
@@ -59,7 +62,9 @@ export default function Sidebar({
   isOpen,
   setIsOpen,
   isCollapsed,
-  onToggleCollapse
+  onToggleCollapse,
+  deferredPrompt,
+  onInstallApp
 }: SidebarProps) {
 
   const menuItems = [
@@ -109,7 +114,7 @@ export default function Sidebar({
               <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
                 <Wallet className="w-4.5 h-4.5 text-white" />
               </div>
-              <span className={`font-bold text-lg tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text text-transparent ${isCollapsed ? 'md:hidden' : ''}`}>BudgetFlow</span>
+              <span className={`font-bold text-lg tracking-tight bg-gradient-to-r from-slate-900 to-slate-600 dark:from-white dark:to-slate-400 bg-clip-text text-transparent ${isCollapsed ? 'md:hidden' : ''}`}>DevFint</span>
             </div>
             
             {/* Desktop Collapse Button */}
@@ -197,6 +202,34 @@ export default function Sidebar({
             );
           })}
         </nav>
+
+        {/* PWA Install Button Prompt (Directly requested by user) */}
+        {deferredPrompt && (
+          <div className="mx-4 mb-2 p-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/20 relative group/install overflow-hidden">
+            <div className="absolute inset-0 bg-white/10 opacity-0 group-hover/install:opacity-100 transition-opacity" />
+            <div className="relative z-10 flex flex-col gap-1.5">
+              {!isCollapsed && (
+                <>
+                  <div className="flex items-center gap-1.5 font-bold text-xs">
+                    <CloudLightning className="w-4 h-4 text-amber-300 animate-pulse animate-duration-[2s]" />
+                    <span>Run DevFint Native!</span>
+                  </div>
+                  <p className="text-[10px] text-blue-100 leading-normal">
+                    Get standalone performance and earn 150 XP instantly!
+                  </p>
+                </>
+              )}
+              <button
+                onClick={onInstallApp}
+                className={`w-full flex items-center justify-center gap-2 py-1.5 rounded-lg bg-white text-blue-600 text-xs font-bold hover:bg-slate-50 transition-colors shadow-sm cursor-pointer ${isCollapsed ? 'p-1.5' : ''}`}
+                title="Install DevFint App"
+              >
+                <Download className="w-3.5 h-3.5" />
+                {!isCollapsed && <span>Install App</span>}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Gamification Points & Level Section */}
         <div className="mt-4">

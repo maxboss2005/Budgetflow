@@ -1,6 +1,6 @@
 {
-  "name": "BudgetFlow",
-  "description": "An intelligent personal finance SaaS platform with real-time analytics, budgets, savings goals, subscription tracking, and Gemini AI-powered smart insights.",
+  "name": "DevFint",
+  "description": "DevFint is an intelligent personal finance platform with real-time analytics, budgeting, and AI-powered financial insights.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
