@@ -230,6 +230,32 @@ app.put('/api/finance/categories/:id', authenticateToken, (req, res) => {
   }
 });
 
+// Helper to adjust account balances based on transactions
+function adjustAccountBalance(userId: string, accountId: string | undefined, amount: number) {
+  if (!accountId) return;
+  try {
+    const accounts = db.getAccounts(userId);
+    const acc = accounts.find(a => a.id === accountId);
+    if (acc) {
+      db.updateAccount(userId, accountId, { balance: Number((acc.balance + amount).toFixed(2)) });
+    }
+  } catch (e) {
+    console.error(`Failed to adjust balance for account ${accountId}:`, e);
+  }
+}
+
+function processTransactionEffect(userId: string, tx: any, factor: 1 | -1) {
+  const amount = tx.amount * factor;
+  if (tx.type === 'income') {
+    adjustAccountBalance(userId, tx.accountId, amount);
+  } else if (tx.type === 'expense') {
+    adjustAccountBalance(userId, tx.accountId, -amount);
+  } else if (tx.type === 'transfer') {
+    adjustAccountBalance(userId, tx.accountId, -amount);
+    adjustAccountBalance(userId, tx.toAccountId, amount);
+  }
+}
+
 app.get('/api/finance/transactions', authenticateToken, (req, res) => {
   const user = (req as any).user;
   const transactions = db.getTransactions(user.id);
@@ -244,6 +270,7 @@ app.post('/api/finance/transactions', authenticateToken, (req, res) => {
       return res.status(400).json({ error: 'Missing transaction details' });
     }
     const newTx = db.createTransaction(user.id, tx);
+    processTransactionEffect(user.id, newTx, 1);
     res.status(201).json({ transaction: newTx });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -253,7 +280,12 @@ app.post('/api/finance/transactions', authenticateToken, (req, res) => {
 app.put('/api/finance/transactions/:id', authenticateToken, (req, res) => {
   try {
     const user = (req as any).user;
+    const oldTx = db.getTransactions(user.id).find(t => t.id === req.params.id);
+    if (oldTx) {
+      processTransactionEffect(user.id, oldTx, -1);
+    }
     const updated = db.updateTransaction(user.id, req.params.id, req.body);
+    processTransactionEffect(user.id, updated, 1);
     res.json({ transaction: updated });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -263,7 +295,11 @@ app.put('/api/finance/transactions/:id', authenticateToken, (req, res) => {
 app.delete('/api/finance/transactions/:id', authenticateToken, (req, res) => {
   try {
     const user = (req as any).user;
+    const oldTx = db.getTransactions(user.id).find(t => t.id === req.params.id);
     const success = db.deleteTransaction(user.id, req.params.id);
+    if (success && oldTx) {
+      processTransactionEffect(user.id, oldTx, -1);
+    }
     res.json({ success });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -393,6 +429,100 @@ app.delete('/api/finance/subscriptions/:id', authenticateToken, (req, res) => {
   }
 });
 
+// 5.5 Accounts & Debts Endpoints
+app.get('/api/finance/accounts', authenticateToken, (req, res) => {
+  const user = (req as any).user;
+  const accounts = db.getAccounts(user.id);
+  res.json({ accounts });
+});
+
+app.post('/api/finance/accounts', authenticateToken, (req, res) => {
+  try {
+    const user = (req as any).user;
+    const { name, type, balance, color } = req.body;
+    if (!name || !type) {
+      return res.status(400).json({ error: 'Missing account configurations' });
+    }
+    const newAccount = db.createAccount(user.id, {
+      name,
+      type,
+      balance: balance !== undefined ? Number(balance) : 0,
+      color
+    });
+    res.status(201).json({ account: newAccount });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/finance/accounts/:id', authenticateToken, (req, res) => {
+  try {
+    const user = (req as any).user;
+    const updated = db.updateAccount(user.id, req.params.id, req.body);
+    res.json({ account: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/finance/accounts/:id', authenticateToken, (req, res) => {
+  try {
+    const user = (req as any).user;
+    const success = db.deleteAccount(user.id, req.params.id);
+    res.json({ success });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/finance/debts', authenticateToken, (req, res) => {
+  const user = (req as any).user;
+  const debts = db.getDebts(user.id);
+  res.json({ debts });
+});
+
+app.post('/api/finance/debts', authenticateToken, (req, res) => {
+  try {
+    const user = (req as any).user;
+    const { name, type, totalPrincipal, currentBalance, interestRate, minMonthlyPayment, dueDate } = req.body;
+    if (!name || !type || totalPrincipal === undefined || currentBalance === undefined) {
+      return res.status(400).json({ error: 'Missing debt details' });
+    }
+    const newDebt = db.createDebt(user.id, {
+      name,
+      type,
+      totalPrincipal: Number(totalPrincipal),
+      currentBalance: Number(currentBalance),
+      interestRate: Number(interestRate || 0),
+      minMonthlyPayment: Number(minMonthlyPayment || 0),
+      dueDate
+    });
+    res.status(201).json({ debt: newDebt });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/finance/debts/:id', authenticateToken, (req, res) => {
+  try {
+    const user = (req as any).user;
+    const updated = db.updateDebt(user.id, req.params.id, req.body);
+    res.json({ debt: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/finance/debts/:id', authenticateToken, (req, res) => {
+  try {
+    const user = (req as any).user;
+    const success = db.deleteDebt(user.id, req.params.id);
+    res.json({ success });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 6. Notifications Endpoints
 app.get('/api/finance/notifications', authenticateToken, (req, res) => {
   const user = (req as any).user;
@@ -431,6 +561,8 @@ app.post('/api/finance/sync', authenticateToken, (req, res) => {
       goals: db.getGoals(user.id),
       subscriptions: db.getSubscriptions(user.id),
       categories: db.getCategories(user.id),
+      accounts: db.getAccounts(user.id),
+      debts: db.getDebts(user.id),
     });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

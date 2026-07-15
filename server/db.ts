@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
-import { User, Category, Transaction, Budget, SavingsGoal, Subscription, AppNotification } from '../src/types.js';
+import { User, Category, Transaction, Budget, SavingsGoal, Subscription, AppNotification, Account, Debt } from '../src/types.js';
 
 interface UserDBRecord extends Omit<User, 'password'> {
   passwordHash: string;
@@ -16,6 +16,8 @@ interface DatabaseSchema {
   goals: SavingsGoal[];
   subscriptions: Subscription[];
   notifications: AppNotification[];
+  accounts: Account[];
+  debts: Debt[];
 }
 
 const DB_PATH = path.join(process.cwd(), 'data', 'db.json');
@@ -44,6 +46,8 @@ export class Database {
     goals: [],
     subscriptions: [],
     notifications: [],
+    accounts: [],
+    debts: [],
   };
 
   constructor() {
@@ -64,6 +68,10 @@ export class Database {
       if (fs.existsSync(DB_PATH)) {
         const data = fs.readFileSync(DB_PATH, 'utf-8');
         this.schema = JSON.parse(data);
+
+        // Hydration safeguards for new schema additions
+        if (!this.schema.accounts) this.schema.accounts = [];
+        if (!this.schema.debts) this.schema.debts = [];
 
         // Ensure proper admin roles exist for designated emails on boot
         let hasChanges = false;
@@ -195,6 +203,8 @@ export class Database {
     this.schema.subscriptions = this.schema.subscriptions.filter(s => s.userId !== userId);
     this.schema.notifications = this.schema.notifications.filter(n => n.userId !== userId);
     this.schema.categories = this.schema.categories.filter(c => !c.isCustom || c.userId !== userId);
+    this.schema.accounts = (this.schema.accounts || []).filter(a => a.userId !== userId);
+    this.schema.debts = (this.schema.debts || []).filter(d => d.userId !== userId);
     this.save();
   }
 
@@ -440,6 +450,92 @@ export class Database {
     this.save();
   }
 
+  // --- Account Operations ---
+  public getAccounts(userId: string): Account[] {
+    return this.schema.accounts || [];
+  }
+
+  public createAccount(userId: string, account: Omit<Account, 'id' | 'userId' | 'createdAt'>): Account {
+    const id = 'acc_' + crypto.randomBytes(8).toString('hex');
+    const newAccount: Account = {
+      ...account,
+      id,
+      userId,
+      createdAt: new Date().toISOString(),
+    };
+    this.schema.accounts = this.schema.accounts || [];
+    this.schema.accounts.push(newAccount);
+    this.save();
+    return newAccount;
+  }
+
+  public updateAccount(userId: string, accountId: string, updates: Partial<Account>): Account {
+    this.schema.accounts = this.schema.accounts || [];
+    const idx = this.schema.accounts.findIndex(a => a.id === accountId && a.userId === userId);
+    if (idx === -1) throw new Error('Account not found');
+
+    const updated = {
+      ...this.schema.accounts[idx],
+      ...updates,
+      userId,
+    };
+    this.schema.accounts[idx] = updated;
+    this.save();
+    return updated;
+  }
+
+  public deleteAccount(userId: string, accountId: string): boolean {
+    this.schema.accounts = this.schema.accounts || [];
+    const originalLength = this.schema.accounts.length;
+    this.schema.accounts = this.schema.accounts.filter(a => !(a.id === accountId && a.userId === userId));
+    const success = this.schema.accounts.length < originalLength;
+    if (success) this.save();
+    return success;
+  }
+
+  // --- Debt Operations ---
+  public getDebts(userId: string): Debt[] {
+    return this.schema.debts || [];
+  }
+
+  public createDebt(userId: string, debt: Omit<Debt, 'id' | 'userId' | 'createdAt'>): Debt {
+    const id = 'debt_' + crypto.randomBytes(8).toString('hex');
+    const newDebt: Debt = {
+      ...debt,
+      id,
+      userId,
+      createdAt: new Date().toISOString(),
+    };
+    this.schema.debts = this.schema.debts || [];
+    this.schema.debts.push(newDebt);
+    this.save();
+    return newDebt;
+  }
+
+  public updateDebt(userId: string, debtId: string, updates: Partial<Debt>): Debt {
+    this.schema.debts = this.schema.debts || [];
+    const idx = this.schema.debts.findIndex(d => d.id === debtId && d.userId === userId);
+    if (idx === -1) throw new Error('Debt not found');
+
+    const updated = {
+      ...this.schema.debts[idx],
+      ...updates,
+      userId,
+    };
+    this.schema.debts[idx] = updated;
+    this.save();
+    return updated;
+  }
+
+  public deleteDebt(userId: string, debtId: string): boolean {
+    this.schema.debts = this.schema.debts || [];
+    const originalLength = this.schema.debts.length;
+    this.schema.debts = this.schema.debts.filter(d => !(d.id === debtId && d.userId === userId));
+    const success = this.schema.debts.length < originalLength;
+    if (success) this.save();
+    return success;
+  }
+
   // --- Offline Synchronization Queue Handler ---
   public synchronizeQueue(userId: string, queue: any[]): { success: boolean, syncedCount: number } {
     let syncedCount = 0;
@@ -590,7 +686,17 @@ export class Database {
         return d.toISOString().split('T')[0];
       };
 
-      // Income records
+      // Seed Core Accounts
+      const accCash = this.createAccount(userId, { name: 'Cash Wallet', type: 'cash', balance: 450, color: '#10B981' });
+      const accChase = this.createAccount(userId, { name: 'Chase Checking', type: 'bank', balance: 3200, color: '#3B82F6' });
+      const accSavings = this.createAccount(userId, { name: 'High-Yield Savings', type: 'savings', balance: 18000, color: '#8B5CF6' });
+      const accCrypto = this.createAccount(userId, { name: 'Crypto Wallet', type: 'crypto', balance: 6200, color: '#F59E0B' });
+
+      // Seed Core Debts
+      this.createDebt(userId, { name: 'Federal Student Loan', type: 'loan', totalPrincipal: 15000, currentBalance: 9400, interestRate: 4.5, minMonthlyPayment: 150, dueDate: getPastDate(-15) });
+      this.createDebt(userId, { name: 'Chase Sapphire Credit Card', type: 'credit_card', totalPrincipal: 5000, currentBalance: 1200, interestRate: 19.99, minMonthlyPayment: 50, dueDate: getPastDate(-5) });
+
+      // Income records linked to Chase Checking
       this.createTransaction(userId, {
         amount: 5400,
         type: 'income',
@@ -598,7 +704,8 @@ export class Database {
         date: getPastDate(25),
         notes: 'Monthly principal corporate salary payment',
         isRecurring: true,
-        recurrenceRule: 'monthly'
+        recurrenceRule: 'monthly',
+        accountId: accChase.id
       });
       this.createTransaction(userId, {
         amount: 1200,
@@ -606,6 +713,7 @@ export class Database {
         categoryId: 'cat-freelance',
         date: getPastDate(12),
         notes: 'SaaS landing page redesign project payment',
+        accountId: accChase.id
       });
       this.createTransaction(userId, {
         amount: 850,
@@ -613,9 +721,10 @@ export class Database {
         categoryId: 'cat-freelance',
         date: getPastDate(2),
         notes: 'Consulting call advisory hours',
+        accountId: accChase.id
       });
 
-      // Expense records
+      // Expense records linked to accounts
       this.createTransaction(userId, {
         amount: 1500,
         type: 'expense',
@@ -623,7 +732,8 @@ export class Database {
         date: getPastDate(28),
         notes: 'Downtown luxury apartment monthly rent',
         isRecurring: true,
-        recurrenceRule: 'monthly'
+        recurrenceRule: 'monthly',
+        accountId: accChase.id
       });
       this.createTransaction(userId, {
         amount: 120,
@@ -631,6 +741,7 @@ export class Database {
         categoryId: 'cat-food',
         date: getPastDate(20),
         notes: 'Whole Foods organic weekly groceries run',
+        accountId: accChase.id
       });
       this.createTransaction(userId, {
         amount: 45,
@@ -638,6 +749,7 @@ export class Database {
         categoryId: 'cat-transport',
         date: getPastDate(18),
         notes: 'Uber Premium trips downtown',
+        accountId: accChase.id
       });
       this.createTransaction(userId, {
         amount: 250,
@@ -645,6 +757,7 @@ export class Database {
         categoryId: 'cat-shopping',
         date: getPastDate(15),
         notes: 'Designer clothing store purchases',
+        accountId: accChase.id
       });
       this.createTransaction(userId, {
         amount: 189,
@@ -653,7 +766,8 @@ export class Database {
         date: getPastDate(14),
         notes: 'Smart Home high speed broadband internet & grid electricity',
         isRecurring: true,
-        recurrenceRule: 'monthly'
+        recurrenceRule: 'monthly',
+        accountId: accChase.id
       });
       this.createTransaction(userId, {
         amount: 85,
@@ -661,6 +775,7 @@ export class Database {
         categoryId: 'cat-entertainment',
         date: getPastDate(10),
         notes: 'Cinematic IMAX movie ticket and concession snacks',
+        accountId: accCash.id // cash purchase
       });
       this.createTransaction(userId, {
         amount: 140,
@@ -668,6 +783,7 @@ export class Database {
         categoryId: 'cat-food',
         date: getPastDate(8),
         notes: 'Premium rooftop sushi dinner with friends',
+        accountId: accChase.id
       });
       this.createTransaction(userId, {
         amount: 60,
@@ -675,6 +791,7 @@ export class Database {
         categoryId: 'cat-health',
         date: getPastDate(5),
         notes: 'Pharmacy prescription remedies',
+        accountId: accCash.id
       });
       this.createTransaction(userId, {
         amount: 35,
@@ -682,6 +799,7 @@ export class Database {
         categoryId: 'cat-transport',
         date: getPastDate(4),
         notes: 'Train travel commuter card refill',
+        accountId: accCash.id
       });
       this.createTransaction(userId, {
         amount: 15,
@@ -690,7 +808,8 @@ export class Database {
         date: getPastDate(3),
         notes: 'Premium music streaming service subscription',
         isRecurring: true,
-        recurrenceRule: 'monthly'
+        recurrenceRule: 'monthly',
+        accountId: accChase.id
       });
       this.createTransaction(userId, {
         amount: 110,
@@ -698,6 +817,7 @@ export class Database {
         categoryId: 'cat-shopping',
         date: getPastDate(1),
         notes: 'Home decor workspace accessories',
+        accountId: accChase.id
       });
 
       // Seed budgets

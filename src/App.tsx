@@ -30,6 +30,7 @@ import Settings from './components/Settings';
 import Auth from './components/Auth';
 import NotificationsDrawer from './components/NotificationsDrawer';
 import Rewards from './components/Rewards';
+import CoreFinance from './components/CoreFinance';
 
 // Offline DB and types
 import { localDb } from './lib/indexedDb';
@@ -41,7 +42,9 @@ import {
   SavingsGoal, 
   Subscription, 
   Category, 
-  AppNotification 
+  AppNotification,
+  Account,
+  Debt
 } from './types';
 
 const ACCENT_STYLES: Record<string, { primary: string; hover: string; rgb: string }> = {
@@ -100,6 +103,8 @@ export default function App() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
   
   const [currencySymbol, setCurrencySymbol] = useState('$');
   const [dataLoading, setDataLoading] = useState(false);
@@ -109,7 +114,9 @@ export default function App() {
     return (window as any).getDeferredInstallPrompt?.() || null;
   });
   const [isAppInstalled, setIsAppInstalled] = useState(() => {
-    return window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone === true;
+    return window.matchMedia('(display-mode: standalone)').matches || 
+           (navigator as any).standalone === true || 
+           localStorage.getItem('devfint_pwa_installed') === 'true';
   });
 
   useEffect(() => {
@@ -249,18 +256,20 @@ export default function App() {
           }
 
           // 1. Fetch live from Express cloud gateway
-          const [catRes, txRes, bRes, gRes, subRes, notRes] = await Promise.all([
+          const [catRes, txRes, bRes, gRes, subRes, notRes, accRes, debtRes] = await Promise.all([
             fetch('/api/finance/categories', { headers: { 'Authorization': `Bearer ${token}` } }),
             fetch('/api/finance/transactions', { headers: { 'Authorization': `Bearer ${token}` } }),
             fetch('/api/finance/budgets', { headers: { 'Authorization': `Bearer ${token}` } }),
             fetch('/api/finance/goals', { headers: { 'Authorization': `Bearer ${token}` } }),
             fetch('/api/finance/subscriptions', { headers: { 'Authorization': `Bearer ${token}` } }),
-            fetch('/api/finance/notifications', { headers: { 'Authorization': `Bearer ${token}` } })
+            fetch('/api/finance/notifications', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('/api/finance/accounts', { headers: { 'Authorization': `Bearer ${token}` } }),
+            fetch('/api/finance/debts', { headers: { 'Authorization': `Bearer ${token}` } })
           ]);
 
-          if (catRes.ok && txRes.ok && bRes.ok && gRes.ok && subRes.ok && notRes.ok) {
-            const [cats, txs, buds, gls, subs, notifs] = await Promise.all([
-              catRes.json(), txRes.json(), bRes.json(), gRes.json(), subRes.json(), notRes.json()
+          if (catRes.ok && txRes.ok && bRes.ok && gRes.ok && subRes.ok && notRes.ok && accRes.ok && debtRes.ok) {
+            const [cats, txs, buds, gls, subs, notifs, accs, dbts] = await Promise.all([
+              catRes.json(), txRes.json(), bRes.json(), gRes.json(), subRes.json(), notRes.json(), accRes.json(), debtRes.json()
             ]);
 
             // Cache batch replacement inside IndexedDB
@@ -269,7 +278,9 @@ export default function App() {
               buds.budgets,
               gls.goals,
               subs.subscriptions,
-              cats.categories
+              cats.categories,
+              accs.accounts,
+              dbts.debts
             );
 
             // Populate React States
@@ -279,6 +290,8 @@ export default function App() {
             setSubscriptions(subs.subscriptions);
             setCategories(cats.categories);
             setNotifications(notifs.notifications);
+            setAccounts(accs.accounts || []);
+            setDebts(dbts.debts || []);
             
             // Set first matching category as global default
             const defaultExpense = cats.categories.find((c: Category) => c.type === 'expense');
@@ -290,12 +303,14 @@ export default function App() {
 
         // 2. Offline Fallback: hydrate entirely from IndexedDB
         console.log('Hydrating workspace from offline IndexedDB stores...');
-        const [cats, txs, buds, gls, subs] = await Promise.all([
+        const [cats, txs, buds, gls, subs, accs, dbts] = await Promise.all([
           localDb.getAll<Category>('categories'),
           localDb.getAll<Transaction>('transactions'),
           localDb.getAll<Budget>('budgets'),
           localDb.getAll<SavingsGoal>('goals'),
-          localDb.getAll<Subscription>('subscriptions')
+          localDb.getAll<Subscription>('subscriptions'),
+          localDb.getAll<Account>('accounts'),
+          localDb.getAll<Debt>('debts')
         ]);
 
         setTransactions(txs);
@@ -303,6 +318,8 @@ export default function App() {
         setGoals(gls);
         setSubscriptions(subs);
         setCategories(cats);
+        setAccounts(accs || []);
+        setDebts(dbts || []);
         
         const defaultExpense = cats.find((c: Category) => c.type === 'expense');
         if (defaultExpense) setGlobalTxCategoryId(defaultExpense.id);
@@ -376,7 +393,9 @@ export default function App() {
           result.budgets,
           result.goals,
           result.subscriptions,
-          result.categories
+          result.categories,
+          result.accounts,
+          result.debts
         );
 
         // Update React states
@@ -385,6 +404,8 @@ export default function App() {
         setGoals(result.goals);
         setSubscriptions(result.subscriptions);
         setCategories(result.categories);
+        setAccounts(result.accounts || []);
+        setDebts(result.debts || []);
 
         // Award points for successful local ledger sync
         awardPoints(75, 'Synchronized local transaction logs with cloud ledger');
@@ -777,6 +798,198 @@ export default function App() {
     await updateLocalQueueCount();
   };
 
+  // 2.5 Accounts & Debts
+  const handleAddAccount = async (account: any) => {
+    const tempId = 'acc_temp_' + Math.random().toString(36).substring(2, 9);
+    const fullAccount: Account = {
+      id: tempId,
+      userId: user?.id || 'guest',
+      name: account.name,
+      type: account.type,
+      balance: Number(account.balance || 0),
+      color: account.color || '#3B82F6',
+      createdAt: new Date().toISOString()
+    };
+
+    setAccounts(prev => [...prev, fullAccount]);
+    await localDb.put('accounts', fullAccount);
+    awardPoints(40, `Created ${account.name} account`);
+
+    if (isOnline && token) {
+      try {
+        const response = await fetch('/api/finance/accounts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(account)
+        });
+        if (response.ok) {
+          const result = await response.json();
+          setAccounts(prev => prev.map(item => item.id === tempId ? result.account : item));
+          await localDb.delete('accounts', tempId);
+          await localDb.put('accounts', result.account);
+          return;
+        }
+      } catch (err) {
+        console.warn('Account logging failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('create', 'account', { ...account, id: tempId });
+    await updateLocalQueueCount();
+  };
+
+  const handleUpdateAccount = async (id: string, updates: any) => {
+    setAccounts(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    const localItem = accounts.find(item => item.id === id);
+    if (localItem) {
+      await localDb.put('accounts', { ...localItem, ...updates });
+    }
+
+    if (isOnline && token && !id.startsWith('acc_temp_')) {
+      try {
+        const response = await fetch(`/api/finance/accounts/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updates)
+        });
+        if (response.ok) {
+          const result = await response.json();
+          setAccounts(prev => prev.map(item => item.id === id ? result.account : item));
+          await localDb.put('accounts', result.account);
+          return;
+        }
+      } catch (err) {
+        console.warn('Account update failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('update', 'account', { id, updates });
+    await updateLocalQueueCount();
+  };
+
+  const handleDeleteFinanceAccount = async (id: string) => {
+    setAccounts(prev => prev.filter(item => item.id !== id));
+    await localDb.delete('accounts', id);
+
+    if (isOnline && token && !id.startsWith('acc_temp_')) {
+      try {
+        const response = await fetch(`/api/finance/accounts/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) return;
+      } catch (err) {
+        console.warn('Account delete failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('delete', 'account', { id });
+    await updateLocalQueueCount();
+  };
+
+  const handleAddDebt = async (debt: any) => {
+    const tempId = 'debt_temp_' + Math.random().toString(36).substring(2, 9);
+    const fullDebt: Debt = {
+      id: tempId,
+      userId: user?.id || 'guest',
+      name: debt.name,
+      type: debt.type,
+      totalPrincipal: Number(debt.totalPrincipal),
+      currentBalance: Number(debt.currentBalance),
+      interestRate: Number(debt.interestRate || 0),
+      minMonthlyPayment: Number(debt.minMonthlyPayment || 0),
+      dueDate: debt.dueDate || new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString()
+    };
+
+    setDebts(prev => [...prev, fullDebt]);
+    await localDb.put('debts', fullDebt);
+    awardPoints(50, `Registered liability: ${debt.name}`);
+
+    if (isOnline && token) {
+      try {
+        const response = await fetch('/api/finance/debts', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(debt)
+        });
+        if (response.ok) {
+          const result = await response.json();
+          setDebts(prev => prev.map(item => item.id === tempId ? result.debt : item));
+          await localDb.delete('debts', tempId);
+          await localDb.put('debts', result.debt);
+          return;
+        }
+      } catch (err) {
+        console.warn('Debt logging failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('create', 'debt', { ...debt, id: tempId });
+    await updateLocalQueueCount();
+  };
+
+  const handleUpdateDebt = async (id: string, updates: any) => {
+    setDebts(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+    const localItem = debts.find(item => item.id === id);
+    if (localItem) {
+      await localDb.put('debts', { ...localItem, ...updates });
+    }
+
+    if (isOnline && token && !id.startsWith('debt_temp_')) {
+      try {
+        const response = await fetch(`/api/finance/debts/${id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(updates)
+        });
+        if (response.ok) {
+          const result = await response.json();
+          setDebts(prev => prev.map(item => item.id === id ? result.debt : item));
+          await localDb.put('debts', result.debt);
+          return;
+        }
+      } catch (err) {
+        console.warn('Debt update failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('update', 'debt', { id, updates });
+    await updateLocalQueueCount();
+  };
+
+  const handleDeleteDebt = async (id: string) => {
+    setDebts(prev => prev.filter(item => item.id !== id));
+    await localDb.delete('debts', id);
+
+    if (isOnline && token && !id.startsWith('debt_temp_')) {
+      try {
+        const response = await fetch(`/api/finance/debts/${id}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (response.ok) return;
+      } catch (err) {
+        console.warn('Debt delete failed, queuing offline:', err);
+      }
+    }
+
+    await localDb.addToQueue('delete', 'debt', { id });
+    await updateLocalQueueCount();
+  };
+
   // 3. Goals
   const handleAddGoal = async (goal: any) => {
     const tempId = 'g_temp_' + Math.random().toString(36).substring(2, 9);
@@ -1120,6 +1333,28 @@ export default function App() {
             onAddTxClick={() => openGlobalTxModal('expense')}
             setActiveTab={setActiveTab}
             loading={dataLoading}
+            deferredPrompt={deferredPrompt}
+            onInstallApp={handleInstallApp}
+            isAppInstalled={isAppInstalled}
+            setIsAppInstalled={setIsAppInstalled}
+            awardPoints={awardPoints}
+          />
+        );
+      case 'accounts':
+        return (
+          <CoreFinance
+            accounts={accounts}
+            debts={debts}
+            transactions={transactions}
+            categories={categories}
+            currencySymbol={currencySymbol}
+            onAddAccount={handleAddAccount}
+            onUpdateAccount={handleUpdateAccount}
+            onDeleteAccount={handleDeleteFinanceAccount}
+            onAddDebt={handleAddDebt}
+            onUpdateDebt={handleUpdateDebt}
+            onDeleteDebt={handleDeleteDebt}
+            onAddTransaction={handleAddTransaction}
           />
         );
       case 'transactions':
@@ -1188,6 +1423,8 @@ export default function App() {
             transactions={transactions}
             subscriptions={subscriptions}
             categories={categories}
+            budgets={budgets}
+            goals={goals}
             currencySymbol={currencySymbol}
             awardPoints={awardPoints}
             onUpdateUser={handleUpdateUser}

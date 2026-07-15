@@ -26,7 +26,16 @@ import {
   CheckCircle2,
   HelpCircle,
   Wallet,
-  Flame
+  Flame,
+  X,
+  Smartphone,
+  Download,
+  Info,
+  Share,
+  MoreVertical,
+  Check,
+  Monitor,
+  Gift
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -63,6 +72,11 @@ interface DashboardProps {
   onAddTxClick: () => void;
   setActiveTab: (tab: string) => void;
   loading: boolean;
+  deferredPrompt?: any;
+  onInstallApp?: () => void;
+  isAppInstalled?: boolean;
+  setIsAppInstalled?: (val: boolean) => void;
+  awardPoints?: (amount: number, reason: string) => void;
 }
 
 export default function Dashboard({
@@ -74,7 +88,12 @@ export default function Dashboard({
   currencySymbol,
   onAddTxClick,
   setActiveTab,
-  loading
+  loading,
+  deferredPrompt,
+  onInstallApp,
+  isAppInstalled = false,
+  setIsAppInstalled,
+  awardPoints
 }: DashboardProps) {
 
   if (loading) {
@@ -230,6 +249,19 @@ export default function Dashboard({
     last7DaysStreak.push({ dateStr, dayLabel, hasTx, isToday });
   }
 
+  const [installDismissed, setInstallDismissed] = React.useState(() => {
+    return localStorage.getItem('devfint_install_dismissed') === 'true';
+  });
+  const [showGuideModal, setShowGuideModal] = React.useState(false);
+  const [guideTab, setGuideTab] = React.useState<'android' | 'ios' | 'desktop'>('android');
+  const isInIframe = React.useMemo(() => {
+    try {
+      return window.self !== window.top;
+    } catch (e) {
+      return true;
+    }
+  }, []);
+
   return (
     <div id="dashboard-view" className="p-6 md:p-8 space-y-8 animate-fade-in no-print">
       
@@ -258,6 +290,425 @@ export default function Dashboard({
           </button>
         </div>
       </div>
+
+      {/* PWA Install Alert Banner */}
+      {!isAppInstalled && !installDismissed && (
+        <div className={`border rounded-3xl p-5 md:p-6 shadow-lg relative overflow-hidden animate-fade-in group/pwa transition-all duration-300 ${
+          isInIframe 
+            ? 'bg-gradient-to-r from-amber-600 via-orange-600 to-slate-900 border-amber-500/20 text-white' 
+            : 'bg-gradient-to-r from-blue-600 via-indigo-600 to-slate-900 border-blue-500/10 text-white'
+        }`}>
+          {/* Ambient animations */}
+          <div className="absolute -right-12 -top-12 w-40 h-40 bg-white/5 rounded-full blur-2xl pointer-events-none group-hover/pwa:scale-110 transition-transform duration-700"></div>
+          <div className="absolute -left-12 -bottom-12 w-40 h-40 bg-blue-500/20 rounded-full blur-2xl pointer-events-none"></div>
+
+          <div className="flex items-start justify-between gap-4 relative z-10">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+              <div className={`w-12 h-12 rounded-2xl backdrop-blur-md text-white flex items-center justify-center shrink-0 border shadow-inner ${
+                isInIframe ? 'bg-amber-500/20 border-amber-400/25' : 'bg-white/10 border-white/10'
+              }`}>
+                <Smartphone className="w-6 h-6 animate-bounce" style={{ animationDuration: '3s' }} />
+              </div>
+              <div className="space-y-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-amber-500 text-slate-950 tracking-wider shadow-sm animate-pulse">
+                    <Sparkles className="w-3 h-3 fill-slate-950 text-slate-950" />
+                    <span>+150 XP Reward</span>
+                  </span>
+                  <span className="text-xs text-blue-100 font-bold font-mono uppercase tracking-widest bg-blue-500/20 px-2 py-0.5 rounded-md">
+                    {isInIframe ? 'Preview Frame Active' : 'Native PWA'}
+                  </span>
+                </div>
+                
+                {isInIframe ? (
+                  <>
+                    <h3 className="text-base font-extrabold text-white tracking-tight mt-1 flex items-center gap-2">
+                      <span>⚠️ App Installation Restricted by Preview Frame</span>
+                    </h3>
+                    <p className="text-xs text-orange-100 max-w-2xl leading-relaxed">
+                      You are viewing DevFint inside the AI Studio preview window. **Web browsers strictly block app installation inside iframes!** Launch the app in a standalone tab below to install it directly onto your phone.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-base font-extrabold text-white tracking-tight mt-1">Install DevFint on Your Device</h3>
+                    <p className="text-xs text-blue-100 max-w-2xl leading-relaxed">
+                      Enjoy blazing-fast startup speed, a standalone app window, home screen launching, offline capabilities, and a native application experience.
+                    </p>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <button 
+              onClick={() => {
+                localStorage.setItem('devfint_install_dismissed', 'true');
+                setInstallDismissed(true);
+              }}
+              className="p-1.5 rounded-xl hover:bg-white/15 text-white/75 hover:text-white transition-all cursor-pointer border border-transparent hover:border-white/10"
+              title="Dismiss prompt"
+            >
+              <X className="w-4.5 h-4.5" />
+            </button>
+          </div>
+
+          <div className="mt-5 flex flex-wrap items-center gap-3 relative z-10 border-t border-white/10 pt-4">
+            {isInIframe ? (
+              <button
+                onClick={() => window.open(window.location.href, '_blank')}
+                className="px-5 py-2.5 bg-white text-orange-600 hover:bg-slate-50 text-xs font-extrabold rounded-xl shadow-md shadow-slate-950/20 transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-95 animate-pulse"
+              >
+                <ArrowUpRight className="w-4 h-4" />
+                <span>🚀 Launch in New Tab to Install</span>
+              </button>
+            ) : deferredPrompt ? (
+              <button
+                onClick={onInstallApp}
+                className="px-5 py-2.5 bg-white text-blue-600 hover:bg-slate-50 text-xs font-bold rounded-xl shadow-md shadow-slate-950/20 transition-all flex items-center gap-2 cursor-pointer hover:scale-[1.02] active:scale-95"
+              >
+                <Download className="w-4 h-4" />
+                <span>Install Native App</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setGuideTab('android');
+                  setShowGuideModal(true);
+                }}
+                className="px-5 py-2.5 bg-blue-500/30 text-white hover:bg-blue-500/40 text-xs font-bold rounded-xl border border-white/10 transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>Open Install Assistant</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                setGuideTab('android');
+                setShowGuideModal(true);
+              }}
+              className="px-4 py-2 bg-white/5 hover:bg-white/10 text-white/90 text-xs font-bold rounded-xl border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <Info className="w-3.5 h-3.5" />
+              <span>Interactive Guide</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* PWA Interactive Guide Modal */}
+      {showGuideModal && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in no-print overflow-y-auto">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl relative my-8">
+            
+            {/* Header */}
+            <div className="p-6 pb-4 border-b border-slate-100 dark:border-slate-800/80 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500 text-white flex items-center justify-center shadow-lg shadow-blue-500/25">
+                  <Smartphone className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base text-slate-900 dark:text-white">In-App PWA Install Center</h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">Complete setup to earn 150 XP instantly! 🏆</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowGuideModal(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Embed / Iframe Warning in Modal */}
+            {isInIframe && (
+              <div className="mx-6 mt-4 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-400 text-xs flex gap-2.5 items-start">
+                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
+                <div className="space-y-1">
+                  <p className="font-bold">Currently Running in Iframe Preview</p>
+                  <p className="leading-relaxed opacity-90">
+                    Chrome blocks installation options in this preview pane. Please click the button below to launch in a full browser tab to install directly.
+                  </p>
+                  <button 
+                    onClick={() => window.open(window.location.href, '_blank')}
+                    className="mt-1.5 px-3 py-1 bg-amber-500 dark:bg-amber-600 text-slate-950 dark:text-white font-bold rounded-lg hover:bg-amber-600 dark:hover:bg-amber-500 transition-colors inline-flex items-center gap-1"
+                  >
+                    <span>Launch in New Tab</span>
+                    <ArrowUpRight className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Device Tabs */}
+            <div className="px-6 pt-4 flex gap-1.5 border-b border-slate-100 dark:border-slate-800/80">
+              <button
+                onClick={() => setGuideTab('android')}
+                className={`px-4 py-2 text-xs font-bold rounded-t-xl border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  guideTab === 'android' 
+                    ? 'border-emerald-500 text-emerald-600 dark:text-emerald-400 bg-emerald-50/20 dark:bg-emerald-950/10' 
+                    : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                Android / Chrome
+              </button>
+              <button
+                onClick={() => setGuideTab('ios')}
+                className={`px-4 py-2 text-xs font-bold rounded-t-xl border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  guideTab === 'ios' 
+                    ? 'border-rose-500 text-rose-600 dark:text-rose-400 bg-rose-50/20 dark:bg-rose-950/10' 
+                    : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                iPhone / Safari
+              </button>
+              <button
+                onClick={() => setGuideTab('desktop')}
+                className={`px-4 py-2 text-xs font-bold rounded-t-xl border-b-2 transition-all flex items-center gap-1.5 cursor-pointer ${
+                  guideTab === 'desktop' 
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/20 dark:bg-blue-950/10' 
+                    : 'border-transparent text-slate-500 hover:text-slate-900 dark:hover:text-white'
+                }`}
+              >
+                <span className="w-2 h-2 rounded-full bg-blue-500" />
+                Desktop PC
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6 max-h-[55vh] overflow-y-auto">
+              {/* Tab Content: Android / Chrome */}
+              {guideTab === 'android' && (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold">1</span>
+                      Tap the Chrome 3-Dots Menu
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 pl-7 leading-relaxed">
+                      Tap the <strong className="text-slate-900 dark:text-white">Three-Dots Menu (<MoreVertical className="w-3 h-3 inline-block" />)</strong> icon in the top right corner of your Chrome browser address bar.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-xs font-bold">2</span>
+                      Find & Tap "Install App" or "Add to Home screen"
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 pl-7 leading-relaxed">
+                      Look down the list. Select <strong className="text-emerald-600 dark:text-emerald-400 font-bold">Install app</strong> or <strong className="text-emerald-600 dark:text-emerald-400 font-bold">Add to Home screen</strong> and tap it!
+                    </p>
+                  </div>
+
+                  {/* Chrome Browser Dropdown Simulator */}
+                  <div className="p-4 rounded-2xl border border-emerald-500/25 bg-emerald-50/5 dark:bg-emerald-950/5 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Interactive Menu Simulator</span>
+                      <span className="text-[10px] text-slate-400 font-mono">Chrome Browser</span>
+                    </div>
+
+                    {/* Address bar simulator */}
+                    <div className="bg-slate-100 dark:bg-slate-950 rounded-xl px-3 py-1.5 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-mono shadow-inner border border-slate-200/50 dark:border-slate-800">
+                      <span className="truncate">https://devfint-wealth.web.app</span>
+                      <MoreVertical className="w-4 h-4 text-slate-900 dark:text-slate-100 animate-pulse bg-emerald-500/10 rounded-full" />
+                    </div>
+
+                    {/* Simulator Dropdown box */}
+                    <div className="max-w-xs mx-auto bg-white dark:bg-slate-850 rounded-xl border border-slate-200 dark:border-slate-700/80 shadow-2xl divide-y divide-slate-100 dark:divide-slate-800/80 overflow-hidden font-sans">
+                      <div className="p-2.5 text-[11px] text-slate-400 flex justify-between">
+                        <span>⭐️ Star</span>
+                        <span>⬇️ Download</span>
+                        <span>ℹ️ Info</span>
+                        <span>🔄 Reload</span>
+                      </div>
+                      <div className="p-2.5 text-xs text-slate-700 dark:text-slate-300">New tab</div>
+                      <div className="p-2.5 text-xs text-slate-700 dark:text-slate-300">New Incognito tab</div>
+                      <div className="p-2.5 text-xs text-slate-700 dark:text-slate-300">History</div>
+                      <div className="p-2.5 text-xs text-slate-700 dark:text-slate-300">Downloads</div>
+                      
+                      {/* Highlighted simulator option */}
+                      <div 
+                        onClick={() => {
+                          localStorage.setItem('devfint_pwa_installed', 'true');
+                          if (setIsAppInstalled) setIsAppInstalled(true);
+                          if (awardPoints) {
+                            awardPoints(150, "PWA Installed! Enjoy standalone launching and offline analytics! 📱✨");
+                          }
+                          setShowGuideModal(false);
+                        }}
+                        className="p-3 bg-gradient-to-r from-emerald-500/10 via-emerald-500/20 to-emerald-500/10 text-emerald-700 dark:text-emerald-400 font-bold text-xs flex items-center justify-between cursor-pointer hover:from-emerald-500/20 hover:to-emerald-500/20 animate-pulse border-y-2 border-emerald-500"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Smartphone className="w-4 h-4 animate-bounce text-emerald-600 dark:text-emerald-400" />
+                          <span>📲 Install App (or Add to Home)</span>
+                        </div>
+                        <span className="text-[9px] bg-emerald-500 text-white font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">TAP HERE</span>
+                      </div>
+
+                      <div className="p-2.5 text-xs text-slate-400 dark:text-slate-500">Desktop site</div>
+                      <div className="p-2.5 text-xs text-slate-400 dark:text-slate-500">Settings</div>
+                    </div>
+                    <p className="text-[10px] text-center text-slate-400 italic">
+                      💡 Click "Install App" inside the simulator box above to complete installation instantly!
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab Content: iOS Safari */}
+              {guideTab === 'ios' && (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-xs font-bold">1</span>
+                      Tap the iOS Share Button
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 pl-7 leading-relaxed">
+                      Tap the <strong className="text-slate-900 dark:text-white">Share Button (<Share className="w-4 h-4 inline-block text-blue-500" />)</strong> at the bottom of Safari's browser page.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 text-xs font-bold">2</span>
+                      Tap "Add to Home Screen"
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 pl-7 leading-relaxed">
+                      Scroll down past copy options and tap the <strong className="text-rose-600 dark:text-rose-400 font-bold">Add to Home Screen</strong> option.
+                    </p>
+                  </div>
+
+                  {/* Safari Simulator Preview */}
+                  <div className="p-4 rounded-2xl border border-rose-500/25 bg-rose-50/5 dark:bg-rose-950/5 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-rose-600 dark:text-rose-400">iOS Share Simulator</span>
+                      <span className="text-[10px] text-slate-400 font-mono">Safari Browser</span>
+                    </div>
+
+                    <div className="max-w-xs mx-auto bg-slate-100 dark:bg-slate-950 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-3">
+                      <div className="text-center font-bold text-slate-900 dark:text-white text-xs py-1">Share Sheet</div>
+                      <div className="space-y-2">
+                        <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl text-xs text-slate-600 dark:text-slate-400 flex justify-between">
+                          <span>Copy Link</span>
+                          <span>🔗</span>
+                        </div>
+                        <div className="p-2.5 bg-white dark:bg-slate-900 rounded-xl text-xs text-slate-600 dark:text-slate-400 flex justify-between">
+                          <span>Add to Reading List</span>
+                          <span>📖</span>
+                        </div>
+                        {/* Interactive Item */}
+                        <div 
+                          onClick={() => {
+                            localStorage.setItem('devfint_pwa_installed', 'true');
+                            if (setIsAppInstalled) setIsAppInstalled(true);
+                            if (awardPoints) {
+                              awardPoints(150, "PWA shortcut active on iOS! Welcome back! 🍎✨");
+                            }
+                            setShowGuideModal(false);
+                          }}
+                          className="p-3 bg-rose-500/10 border-2 border-rose-500 rounded-xl text-xs text-rose-700 dark:text-rose-400 font-bold flex justify-between items-center cursor-pointer hover:bg-rose-500/20 animate-pulse"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Plus className="w-4 h-4 bg-rose-500 text-white rounded p-0.5" />
+                            <span>Add to Home Screen</span>
+                          </div>
+                          <span className="text-[9px] bg-rose-500 text-white font-black px-1.5 py-0.5 rounded-full">TAP HERE</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Tab Content: Desktop Chrome */}
+              {guideTab === 'desktop' && (
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold">1</span>
+                      Look at the Chrome URL Bar
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 pl-7 leading-relaxed">
+                      On computers running Google Chrome, Microsoft Edge, or Brave, look at the right end of your web address bar.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <h4 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                      <span className="flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-bold">2</span>
+                      Click the Install Button
+                    </h4>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 pl-7 leading-relaxed">
+                      Click the small computer-monitor-download icon (<Download className="w-3.5 h-3.5 inline-block" />) or the screens button in the URL bar, and click <strong className="text-blue-500">Install</strong>!
+                    </p>
+                  </div>
+
+                  {/* Desktop Simulator */}
+                  <div className="p-4 rounded-2xl border border-blue-500/25 bg-blue-50/5 dark:bg-blue-950/5 space-y-3">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800/60">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-blue-600 dark:text-blue-400">Desktop Address Bar</span>
+                      <span className="text-[10px] text-slate-400 font-mono">PC Simulator</span>
+                    </div>
+
+                    <div className="max-w-md mx-auto bg-slate-50 dark:bg-slate-950 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between font-mono text-[11px] text-slate-500 shadow-inner">
+                      <div className="flex items-center gap-2 truncate">
+                        <span className="text-emerald-500">🔒</span>
+                        <span>https://devfint-wealth.web.app/dashboard</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        {/* Interactive monitor icon */}
+                        <div 
+                          onClick={() => {
+                            localStorage.setItem('devfint_pwa_installed', 'true');
+                            if (setIsAppInstalled) setIsAppInstalled(true);
+                            if (awardPoints) {
+                              awardPoints(150, "PWA Installed on desktop! standalone window activated! 🖥️✨");
+                            }
+                            setShowGuideModal(false);
+                          }}
+                          className="px-2 py-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-bold border border-blue-500 rounded-lg flex items-center gap-1.5 cursor-pointer animate-pulse"
+                        >
+                          <Monitor className="w-3.5 h-3.5" />
+                          <Download className="w-3 h-3" />
+                          <span className="text-[9px] uppercase font-black">Install</span>
+                        </div>
+                        <span className="text-slate-400">⋮</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Manual Bypass Setup Block */}
+            <div className="px-6 py-4 bg-slate-50 dark:bg-slate-950/40 border-t border-slate-100 dark:border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="flex items-center gap-2 shrink-0">
+                <Gift className="w-4 h-4 text-amber-500 animate-bounce" />
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Shortcut already created?</span>
+              </div>
+              
+              <button 
+                onClick={() => {
+                  localStorage.setItem('devfint_pwa_installed', 'true');
+                  if (setIsAppInstalled) {
+                    setIsAppInstalled(true);
+                  }
+                  if (awardPoints) {
+                    awardPoints(150, "Direct App Shortcut Setup Active! +150 XP rewarded! 📱🚀");
+                  }
+                  setShowGuideModal(false);
+                }}
+                className="w-full sm:w-auto px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-[11px] font-extrabold rounded-xl shadow-md shadow-blue-500/15 cursor-pointer flex items-center justify-center gap-1.5 hover:scale-[1.01] transition-transform"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                <span>Force Manual XP Claim (+150 XP)</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
 
       {/* Daily Habit Streak Banner */}
       <div id="habit-streak-banner" className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative overflow-hidden transition-all hover:shadow-md">

@@ -69,6 +69,7 @@ export default function Sidebar({
 
   const menuItems = [
     { id: 'dashboard', name: 'Dashboard', icon: LayoutDashboard },
+    { id: 'accounts', name: 'Core Finance', icon: Wallet },
     { id: 'transactions', name: 'Transactions', icon: ArrowLeftRight },
     { id: 'budgets', name: 'Budgets', icon: PieChart },
     { id: 'subscriptions', name: 'Subscriptions', icon: CalendarClock },

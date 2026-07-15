@@ -1,7 +1,7 @@
-import { SyncQueueItem, Transaction, Budget, SavingsGoal, Subscription, Category } from '../types';
+import { SyncQueueItem, Transaction, Budget, SavingsGoal, Subscription, Category, Account, Debt } from '../types';
 
 const DB_NAME = 'devfint_indexeddb';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export class LocalDatabase {
   private db: IDBDatabase | null = null;
@@ -38,6 +38,12 @@ export class LocalDatabase {
         }
         if (!db.objectStoreNames.contains('categories')) {
           db.createObjectStore('categories', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('accounts')) {
+          db.createObjectStore('accounts', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('debts')) {
+          db.createObjectStore('debts', { keyPath: 'id' });
         }
 
         // Action queue for offline sync
@@ -113,19 +119,34 @@ export class LocalDatabase {
     budgets: Budget[],
     goals: SavingsGoal[],
     subscriptions: Subscription[],
-    categories: Category[]
+    categories: Category[],
+    accounts?: Account[],
+    debts?: Debt[]
   ): Promise<void> {
     await this.clearStore('transactions');
     await this.clearStore('budgets');
     await this.clearStore('goals');
     await this.clearStore('subscriptions');
     await this.clearStore('categories');
+    try {
+      await this.clearStore('accounts');
+      await this.clearStore('debts');
+    } catch (e) {
+      console.warn('Accounts or debts clear store failed.', e);
+    }
 
     for (const t of transactions) await this.put('transactions', t);
     for (const b of budgets) await this.put('budgets', b);
     for (const g of goals) await this.put('goals', g);
     for (const s of subscriptions) await this.put('subscriptions', s);
     for (const c of categories) await this.put('categories', c);
+
+    if (accounts) {
+      for (const a of accounts) await this.put('accounts', a);
+    }
+    if (debts) {
+      for (const d of debts) await this.put('debts', d);
+    }
   }
 
   // --- Offline Sync Queue Helpers ---
