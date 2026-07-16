@@ -517,6 +517,45 @@ export default function App() {
   const handleRestoreData = async (data: any): Promise<boolean> => {
     try {
       if (!data || typeof data !== 'object') return false;
+      if (isOnline && token) {
+        try {
+          const response = await fetch('/api/finance/restore', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ data })
+          });
+          if (response.ok) {
+            const result = await response.json();
+            await localDb.cacheAll(
+              result.transactions,
+              result.budgets,
+              result.goals,
+              result.subscriptions,
+              result.categories,
+              result.accounts,
+              result.debts
+            );
+
+            setTransactions(result.transactions);
+            setBudgets(result.budgets);
+            setGoals(result.goals);
+            setSubscriptions(result.subscriptions);
+            setCategories(result.categories);
+            setAccounts(result.accounts || []);
+            setDebts(result.debts || []);
+
+            awardPoints(150, "Financial data ledger successfully restored and synchronized with Cloud database! 🌐📈");
+            return true;
+          } else {
+            console.warn('Cloud restore failed, falling back to local restoration.');
+          }
+        } catch (err) {
+          console.error('Cloud restore request error:', err);
+        }
+      }
       const restoredAccounts = Array.isArray(data.accounts) ? data.accounts : [];
       const restoredDebts = Array.isArray(data.debts) ? data.debts : [];
       const restoredTransactions = Array.isArray(data.transactions) ? data.transactions : [];
