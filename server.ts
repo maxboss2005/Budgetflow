@@ -146,8 +146,6 @@ app.post('/api/auth/login', (req, res) => {
 
     const { passwordHash, salt, ...cleanUser } = user;
     res.status(200).json({ user: cleanUser, token });
-    const { passwordHash, salt, ...cleanUser } = user;
-    res.status(200).json({ user: cleanUser, token });
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Login failed' });
   }
