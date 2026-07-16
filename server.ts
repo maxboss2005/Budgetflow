@@ -357,11 +357,20 @@ app.get('/api/finance/goals', authenticateToken, (req, res) => {
 app.post('/api/finance/goals', authenticateToken, (req, res) => {
   try {
     const user = (req as any).user;
-    const { name, targetAmount, currentAmount, deadline, color, icon } = req.body;
+    const { name, targetAmount, currentAmount, deadline, targetDate, color, icon, accountId } = req.body;
     if (!name || !targetAmount) {
       return res.status(400).json({ error: 'Missing savings goal configuration' });
     }
-    const newGoal = db.createGoal(user.id, { name, targetAmount, currentAmount: currentAmount || 0, deadline, color, icon });
+    const newGoal = db.createGoal(user.id, { 
+      name, 
+      targetAmount, 
+      currentAmount: currentAmount || 0, 
+      deadline, 
+      targetDate, 
+      color, 
+      icon, 
+      accountId 
+    });
     res.status(201).json({ goal: newGoal });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -552,6 +561,29 @@ app.post('/api/finance/notifications/read', authenticateToken, (req, res) => {
 });
 
 // 7. Offline Synchronize Queue Pipeline
+app.post('/api/finance/restore', authenticateToken, (req, res) => {
+  try {
+    const user = (req as any).user;
+    const { data } = req.body;
+    if (!data) {
+      return res.status(400).json({ error: 'Missing restore data' });
+    }
+    db.restoreUserData(user.id, data);
+    res.json({
+      success: true,
+      transactions: db.getTransactions(user.id),
+      budgets: db.getBudgets(user.id),
+      goals: db.getGoals(user.id),
+      subscriptions: db.getSubscriptions(user.id),
+      categories: db.getCategories(user.id),
+      accounts: db.getAccounts(user.id),
+      debts: db.getDebts(user.id),
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post('/api/finance/sync', authenticateToken, (req, res) => {
   try {
     const user = (req as any).user;
