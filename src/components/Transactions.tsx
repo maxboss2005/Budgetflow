@@ -17,7 +17,9 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
-  HelpCircle
+  HelpCircle,
+  Eye,
+  Download
 } from 'lucide-react';
 import { Transaction, Category } from '../types';
 import { IconResolver } from './Dashboard';
@@ -66,6 +68,7 @@ export default function Transactions({
   // Add/Edit Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTx, setEditingTx] = useState<Transaction | null>(null);
+  const [viewingTx, setViewingTx] = useState<Transaction | null>(null);
   
   // Modal Fields
   const [amount, setAmount] = useState('');
@@ -484,7 +487,8 @@ export default function Transactions({
                           <img 
                             src={t.receiptUrl} 
                             alt="Receipt" 
-                            className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-slate-800 shadow-sm"
+                            className="w-8 h-8 rounded-lg object-cover border border-slate-200 dark:border-slate-800 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                            onClick={() => setViewingTx(t)}
                           />
                           {/* Hover large view box */}
                           <div className="absolute hidden group-hover/thumb:block left-10 bottom-0 z-20 p-2 bg-slate-900 border border-slate-700 rounded-xl shadow-xl w-48 h-48 overflow-hidden">
@@ -506,6 +510,13 @@ export default function Transactions({
                     {/* Actions panel */}
                     <td className="py-4 text-right pr-2 whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
+                        <button 
+                          onClick={() => setViewingTx(t)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-500 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                          title="View details & receipt"
+                        >
+                          <Eye className="w-3.5 h-3.5" />
+                        </button>
                         <button 
                           onClick={() => openEditModal(t)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-blue-500 dark:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
@@ -799,6 +810,190 @@ export default function Transactions({
                 Yes, Delete
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TRANSACTION METADATA & RECEIPT VIEWER MODAL */}
+      {viewingTx && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in no-print">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-950/25">
+              <div className="flex items-center gap-2">
+                <FileText className="w-5 h-5 text-blue-500" />
+                <h3 className="text-sm font-bold text-slate-900 dark:text-white">Transaction Details & Receipt</h3>
+              </div>
+              <button 
+                onClick={() => setViewingTx(null)} 
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content (Scrollable) */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              
+              {/* Highlight Box */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800/80 gap-4">
+                <div>
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider font-mono block mb-1">Transaction Ledger Entry</span>
+                  <p className="text-lg font-bold text-slate-900 dark:text-white">
+                    {viewingTx.notes || (viewingTx.type === 'income' ? 'Direct Deposit' : viewingTx.type === 'transfer' ? 'Internal Transfer' : 'Retail Outflow')}
+                  </p>
+                  <span className="text-xs text-slate-500 dark:text-slate-400 block mt-1">{viewingTx.date}</span>
+                </div>
+                <div className="text-left sm:text-right">
+                  <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider font-mono block mb-0.5">Value</span>
+                  <span className={`text-2xl font-black font-mono ${viewingTx.type === 'income' ? 'text-emerald-500' : viewingTx.type === 'transfer' ? 'text-blue-500' : 'text-slate-900 dark:text-white'}`}>
+                    {viewingTx.type === 'income' ? '+' : viewingTx.type === 'transfer' ? '' : '-'}{formatCurrency(viewingTx.amount)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Metadata Grid */}
+              <div>
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3 font-mono">System & Fin-Ledger Metadata</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  
+                  {/* Category */}
+                  <div className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-900 space-y-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Category Allocation</span>
+                    <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-bold border mt-1" style={{ borderColor: `${viewingTx.categoryColor}30`, backgroundColor: `${viewingTx.categoryColor}10`, color: viewingTx.categoryColor }}>
+                      <IconResolver name={viewingTx.categoryIcon || 'HelpCircle'} className="w-3.5 h-3.5" />
+                      <span>{viewingTx.categoryName || 'Uncategorized'}</span>
+                    </div>
+                  </div>
+
+                  {/* Flow Type */}
+                  <div className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-900 space-y-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Transaction Type</span>
+                    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full capitalize mt-1 border ${
+                      viewingTx.type === 'income' 
+                        ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' 
+                        : viewingTx.type === 'transfer' 
+                        ? 'bg-blue-500/10 border-blue-500/20 text-blue-500' 
+                        : 'bg-red-500/10 border-red-500/20 text-red-500'
+                    }`}>
+                      {viewingTx.type}
+                    </span>
+                  </div>
+
+                  {/* Funding Accounts */}
+                  <div className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-900 space-y-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Account Association</span>
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mt-1">
+                      {viewingTx.type === 'transfer' ? (
+                        <>
+                          <span className="text-slate-400 font-normal">From:</span> {accounts.find(a => a.id === viewingTx.accountId)?.name || 'External'}
+                          <br />
+                          <span className="text-slate-400 font-normal">To:</span> {accounts.find(a => a.id === viewingTx.toAccountId)?.name || 'External'}
+                        </>
+                      ) : (
+                        accounts.find(a => a.id === viewingTx.accountId)?.name || 'External / Cash'
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Recurrence */}
+                  <div className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-900 space-y-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Recurrence Protocol</span>
+                    {viewingTx.isRecurring ? (
+                      <div className="flex items-center gap-1.5 text-purple-500 text-xs font-semibold mt-1">
+                        <Clock className="w-3.5 h-3.5" />
+                        <span className="capitalize">{viewingTx.recurrenceRule} execution cycle</span>
+                      </div>
+                    ) : (
+                      <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mt-1">Single-instance transaction</p>
+                    )}
+                  </div>
+
+                  {/* Sync Status */}
+                  <div className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-900 space-y-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Cloud Synced Status</span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className={`w-2 h-2 rounded-full ${viewingTx.isSynced ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`}></span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                        {viewingTx.isSynced ? 'Successfully committed to cloud db' : 'Held locally in offline synchronizer queue'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Technical ID */}
+                  <div className="p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/60 bg-white dark:bg-slate-900 space-y-1">
+                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block font-mono">Ledger Record Identifier</span>
+                    <code className="text-[10px] text-slate-500 dark:text-slate-400 font-mono select-all block mt-1">
+                      {viewingTx.id}
+                    </code>
+                  </div>
+
+                </div>
+              </div>
+
+              {/* Receipt File Preview Section */}
+              <div className="border-t border-slate-100 dark:border-slate-800 pt-5">
+                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3 font-mono">Receipt Document</h4>
+                {viewingTx.receiptUrl ? (
+                  <div className="space-y-3">
+                    <div className="relative rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden bg-slate-50 dark:bg-slate-950 p-2 flex items-center justify-center max-h-[280px]">
+                      <img 
+                        src={viewingTx.receiptUrl} 
+                        alt="Receipt Preview" 
+                        className="max-h-[260px] object-contain rounded-lg shadow-sm"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                    <div className="flex flex-wrap items-center justify-between gap-3 text-xs bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-100 dark:border-slate-850">
+                      <div className="truncate max-w-[280px]">
+                        <span className="text-[10px] font-semibold text-slate-400 block font-mono">Receipt URL / Base64 Document</span>
+                        <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate block" title={viewingTx.receiptUrl}>
+                          {viewingTx.receiptUrl.startsWith('data:') ? 'Embedded Base64 Image Asset' : viewingTx.receiptUrl}
+                        </span>
+                      </div>
+                      <a 
+                        href={viewingTx.receiptUrl} 
+                        download={`receipt_${viewingTx.id}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold text-xs transition-colors cursor-pointer"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Download Document</span>
+                      </a>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-6 text-center border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-950/10">
+                    <FileImage className="w-8 h-8 text-slate-300 dark:text-slate-700 mx-auto mb-2" />
+                    <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">No Receipt Document Associated</p>
+                    <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 max-w-sm mx-auto">
+                      You can attach a receipt image, invoice, or voucher statement by editing this transaction entry in the main ledger table.
+                    </p>
+                    <button
+                      onClick={() => { setViewingTx(null); openEditModal(viewingTx); }}
+                      className="mt-3 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-[10px] transition-colors cursor-pointer"
+                    >
+                      <Upload className="w-3 h-3" />
+                      <span>Upload Receipt Now</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/25 text-right">
+              <button 
+                onClick={() => setViewingTx(null)} 
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer"
+              >
+                Dismiss Details
+              </button>
+            </div>
+
           </div>
         </div>
       )}
