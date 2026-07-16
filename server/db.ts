@@ -208,6 +208,60 @@ export class Database {
     this.save();
   }
 
+  public restoreUserData(userId: string, data: any) {
+    if (!data || typeof data !== 'object') throw new Error('Invalid data format');
+
+    // 1. Clear current records for this user
+    this.schema.transactions = this.schema.transactions.filter(t => t.userId !== userId);
+    this.schema.budgets = this.schema.budgets.filter(b => b.userId !== userId);
+    this.schema.goals = this.schema.goals.filter(g => g.userId !== userId);
+    this.schema.subscriptions = this.schema.subscriptions.filter(s => s.userId !== userId);
+    this.schema.categories = this.schema.categories.filter(c => !c.isCustom || c.userId !== userId);
+    this.schema.accounts = (this.schema.accounts || []).filter(a => a.userId !== userId);
+    this.schema.debts = (this.schema.debts || []).filter(d => d.userId !== userId);
+
+    // 2. Map & insert restored records, guaranteeing correct userId is stamped
+    const restoredAccounts = Array.isArray(data.accounts) ? data.accounts : [];
+    const restoredDebts = Array.isArray(data.debts) ? data.debts : [];
+    const restoredTransactions = Array.isArray(data.transactions) ? data.transactions : [];
+    const restoredBudgets = Array.isArray(data.budgets) ? data.budgets : [];
+    const restoredGoals = Array.isArray(data.goals) ? data.goals : [];
+    const restoredSubscriptions = Array.isArray(data.subscriptions) ? data.subscriptions : [];
+    const restoredCategories = Array.isArray(data.categories) ? data.categories : [];
+
+    restoredAccounts.forEach((acc: any) => {
+      this.schema.accounts.push({ ...acc, userId, isSynced: true });
+    });
+
+    restoredDebts.forEach((debt: any) => {
+      this.schema.debts.push({ ...debt, userId, isSynced: true });
+    });
+
+    restoredTransactions.forEach((tx: any) => {
+      this.schema.transactions.push({ ...tx, userId, isSynced: true });
+    });
+
+    restoredBudgets.forEach((b: any) => {
+      this.schema.budgets.push({ ...b, userId, isSynced: true });
+    });
+
+    restoredGoals.forEach((g: any) => {
+      this.schema.goals.push({ ...g, userId, isSynced: true });
+    });
+
+    restoredSubscriptions.forEach((sub: any) => {
+      this.schema.subscriptions.push({ ...sub, userId, isSynced: true });
+    });
+
+    restoredCategories.forEach((cat: any) => {
+      if (cat.isCustom) {
+        this.schema.categories.push({ ...cat, userId });
+      }
+    });
+
+    this.save();
+  }
+
   // --- Category Operations ---
   public getCategories(userId: string): Category[] {
     return this.schema.categories.filter(c => !c.isCustom || c.userId === userId);
