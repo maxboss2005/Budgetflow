@@ -775,32 +775,16 @@ export class Database {
   }
 
   // --- Seed Data Setup ---
-  private ensureSeedData() {
-    // If we have no users, we create the pre-populated premium user account
-    const demoEmail = 'user@devfint.com';
-    let demoUser = this.findUserByEmail(demoEmail);
-
-    if (!demoUser) {
-      console.log('Seeding database with premium demo account user@devfint.com (password123)...');
-      demoUser = this.createUser(demoEmail, 'password123', 'Test User');
-      const userId = demoUser.id;
-      
-      this.updateUser(userId, {
-        points: 2450,
-        level: 3,
-        achievements: ['Budget Pioneer', 'Savings Hero', 'AI Mind explorer']
-      });
-
-      // Seed categories (the defaults are already registered, let's add one custom)
-      this.createCategory(userId, 'Gym & Fitness', 'expense', '#EC4899', 'Dumbbell');
-
-      // Seed transactions over the last 30 days
+  public seedUserData(userId: string) {
       const now = new Date();
       const getPastDate = (daysAgo: number) => {
         const d = new Date(now);
         d.setDate(d.getDate() - daysAgo);
         return d.toISOString().split('T')[0];
       };
+
+      // Seed categories (custom Gym & Fitness)
+      this.createCategory(userId, 'Gym & Fitness', 'expense', '#EC4899', 'Dumbbell');
 
       // Seed Core Accounts
       const accCash = this.createAccount(userId, { name: 'Cash Wallet', type: 'cash', balance: 450, color: '#10B981' });
@@ -812,7 +796,7 @@ export class Database {
       this.createDebt(userId, { name: 'Federal Student Loan', type: 'loan', totalPrincipal: 15000, currentBalance: 9400, interestRate: 4.5, minMonthlyPayment: 150, dueDate: getPastDate(-15) });
       this.createDebt(userId, { name: 'Chase Sapphire Credit Card', type: 'credit_card', totalPrincipal: 5000, currentBalance: 1200, interestRate: 19.99, minMonthlyPayment: 50, dueDate: getPastDate(-5) });
 
-      // Income records linked to Chase Checking
+      // Income records
       this.createTransaction(userId, {
         amount: 5400,
         type: 'income',
@@ -831,16 +815,8 @@ export class Database {
         notes: 'SaaS landing page redesign project payment',
         accountId: accChase.id
       });
-      this.createTransaction(userId, {
-        amount: 850,
-        type: 'income',
-        categoryId: 'cat-freelance',
-        date: getPastDate(2),
-        notes: 'Consulting call advisory hours',
-        accountId: accChase.id
-      });
-
-      // Expense records linked to accounts
+      
+      // Expenses
       this.createTransaction(userId, {
         amount: 1500,
         type: 'expense',
@@ -868,159 +844,64 @@ export class Database {
         accountId: accChase.id
       });
       this.createTransaction(userId, {
-        amount: 250,
-        type: 'expense',
-        categoryId: 'cat-shopping',
-        date: getPastDate(15),
-        notes: 'Designer clothing store purchases',
-        accountId: accChase.id
-      });
-      this.createTransaction(userId, {
         amount: 189,
         type: 'expense',
         categoryId: 'cat-bills',
         date: getPastDate(14),
-        notes: 'Smart Home high speed broadband internet & grid electricity',
+        notes: 'Smart Home high speed broadband internet',
         isRecurring: true,
         recurrenceRule: 'monthly',
         accountId: accChase.id
       });
-      this.createTransaction(userId, {
-        amount: 85,
-        type: 'expense',
-        categoryId: 'cat-entertainment',
-        date: getPastDate(10),
-        notes: 'Cinematic IMAX movie ticket and concession snacks',
-        accountId: accCash.id // cash purchase
-      });
-      this.createTransaction(userId, {
-        amount: 140,
-        type: 'expense',
-        categoryId: 'cat-food',
-        date: getPastDate(8),
-        notes: 'Premium rooftop sushi dinner with friends',
-        accountId: accChase.id
-      });
-      this.createTransaction(userId, {
-        amount: 60,
-        type: 'expense',
-        categoryId: 'cat-health',
-        date: getPastDate(5),
-        notes: 'Pharmacy prescription remedies',
-        accountId: accCash.id
-      });
-      this.createTransaction(userId, {
-        amount: 35,
-        type: 'expense',
-        categoryId: 'cat-transport',
-        date: getPastDate(4),
-        notes: 'Train travel commuter card refill',
-        accountId: accCash.id
-      });
-      this.createTransaction(userId, {
-        amount: 15,
-        type: 'expense',
-        categoryId: 'cat-entertainment',
-        date: getPastDate(3),
-        notes: 'Premium music streaming service subscription',
-        isRecurring: true,
-        recurrenceRule: 'monthly',
-        accountId: accChase.id
-      });
-      this.createTransaction(userId, {
-        amount: 110,
-        type: 'expense',
-        categoryId: 'cat-shopping',
-        date: getPastDate(1),
-        notes: 'Home decor workspace accessories',
-        accountId: accChase.id
+      // Budgets
+    this.createBudget(userId, { categoryId: 'all', amount: 3500, period: 'monthly', startDate: getPastDate(30), endDate: getPastDate(-30) });
+    this.createBudget(userId, { categoryId: 'cat-food', amount: 500, period: 'monthly', startDate: getPastDate(30), endDate: getPastDate(-30) });
+
+    // Savings Goals
+    this.createGoal(userId, { name: 'Tesla Model Y Premium', targetAmount: 52000, currentAmount: 14500, deadline: getPastDate(-365), color: '#3B82F6', icon: 'Car' });
+    this.createGoal(userId, { name: 'Emergency Fund (6 Months)', targetAmount: 24000, currentAmount: 18000, deadline: getPastDate(-180), color: '#10B981', icon: 'ShieldCheck' });
+
+    // Subscriptions
+    this.createSubscription(userId, { name: 'Netflix Premium UHD', amount: 22.99, billingCycle: 'monthly', nextBillingDate: getPastDate(-14), status: 'active', categoryId: 'cat-entertainment', notes: '4K family stream', renewalReminderEnabled: true });
+    this.createSubscription(userId, { name: 'Github Copilot Pro', amount: 10.00, billingCycle: 'monthly', nextBillingDate: getPastDate(-5), status: 'active', categoryId: 'cat-education', notes: 'AI pair programmer', renewalReminderEnabled: true });
+
+    // Notifications
+    this.createNotification(userId, 'system', 'Welcome to BudgetFlow! Explore your pre-populated high-net-worth developer workspace.');
+  }
+
+  private ensureSeedData() {
+    // If we have no users, we create the pre-populated premium user account
+    const demoEmail = 'user@budgetflow.com';
+    let demoUser = this.findUserByEmail(demoEmail);
+
+    if (!demoUser) {
+      console.log('Seeding database with premium demo account user@budgetflow.com (password123)...');
+      demoUser = this.createUser(demoEmail, 'password123', 'John Doe');
+      const userId = demoUser.id;
+      
+      this.updateUser(userId, {
+        points: 2450,
+        level: 3,
+        achievements: ['Budget Pioneer', 'Savings Hero', 'AI Mind explorer']
       });
 
-      // Seed budgets
-      this.createBudget(userId, {
-        categoryId: 'all',
-        amount: 3500,
-        period: 'monthly',
-        startDate: getPastDate(30),
-        endDate: getPastDate(-30)
-      });
-      this.createBudget(userId, {
-        categoryId: 'cat-food',
-        amount: 500,
-        period: 'monthly',
-        startDate: getPastDate(30),
-        endDate: getPastDate(-30)
-      });
-      this.createBudget(userId, {
-        categoryId: 'cat-transport',
-        amount: 150,
-        period: 'monthly',
-        startDate: getPastDate(30),
-        endDate: getPastDate(-30)
+      this.seedUserData(userId);
+    }
+
+    const babatundeEmail = 'babatundemoyo05@gmail.com';
+    let babatundeUser = this.findUserByEmail(babatundeEmail);
+    if (!babatundeUser) {
+      console.log('Seeding database with premium account babatundemoyo05@gmail.com...');
+      babatundeUser = this.createUser(babatundeEmail, 'password123', 'Babatunde Moyo');
+      const userId = babatundeUser.id;
+      
+      this.updateUser(userId, {
+        points: 2450,
+        level: 3,
+        achievements: ['Budget Pioneer', 'Savings Hero', 'AI Mind explorer']
       });
 
-      // Seed savings goals
-      this.createGoal(userId, {
-        name: 'Tesla Model Y Premium',
-        targetAmount: 52000,
-        currentAmount: 14500,
-        deadline: getPastDate(-365),
-        color: '#3B82F6',
-        icon: 'Car'
-      });
-      this.createGoal(userId, {
-        name: 'Japan Autumn Escape',
-        targetAmount: 8500,
-        currentAmount: 6200,
-        deadline: getPastDate(-90),
-        color: '#EF4444',
-        icon: 'Plane'
-      });
-      this.createGoal(userId, {
-        name: 'Emergency Fund (6 Months)',
-        targetAmount: 24000,
-        currentAmount: 18000,
-        deadline: getPastDate(-180),
-        color: '#10B981',
-        icon: 'ShieldCheck'
-      });
-
-      // Seed subscriptions
-      this.createSubscription(userId, {
-        name: 'Netflix Premium UHD',
-        amount: 22.99,
-        billingCycle: 'monthly',
-        nextBillingDate: getPastDate(-14),
-        status: 'active',
-        categoryId: 'cat-entertainment',
-        notes: '4K multi-device family subscription stream',
-        renewalReminderEnabled: true
-      });
-      this.createSubscription(userId, {
-        name: 'Github Copilot Pro',
-        amount: 10.00,
-        billingCycle: 'monthly',
-        nextBillingDate: getPastDate(-5),
-        status: 'active',
-        categoryId: 'cat-education',
-        notes: 'AI auto-completions pair programmer workspace',
-        renewalReminderEnabled: true
-      });
-      this.createSubscription(userId, {
-        name: 'Adobe Creative Suite',
-        amount: 54.99,
-        billingCycle: 'monthly',
-        nextBillingDate: getPastDate(-10),
-        status: 'active',
-        categoryId: 'cat-freelance',
-        notes: 'Photoshop, Illustrator & Premiere design workstation',
-        renewalReminderEnabled: true
-      });
-
-      // Seed notifications
-      this.createNotification(userId, 'system', 'Welcome to BudgetFlow! Explore your pre-populated high-net-worth developer workspace.');
-      this.createNotification(userId, 'savings_milestone', 'Emergency Fund Goal milestone: You have reached 75% of your target savings!');
-      this.createNotification(userId, 'budget_alert', 'Warning: Food budget has reached 52% utilization for this billing period.');
+      this.seedUserData(userId);
     }
   }
 }
