@@ -65,7 +65,7 @@ export default function Savings({
 
   // Modal State for Editing goal
   const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
-
+  const [accountId, setAccountId] = useState('');
   // Confetti celebration state
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -92,14 +92,15 @@ export default function Savings({
       return;
     }
 
-    const payload = {
+    const payload: any = {
       name: name.trim(),
       targetAmount: parsedTarget,
       currentAmount: parsedCurrent,
       targetDate,
       icon,
       color,
-      status: parsedCurrent >= parsedTarget ? 'reached' : 'active'
+      status: parsedCurrent >= parsedTarget ? 'reached' : 'active',
+      accountId: accountId || undefined
     };
 
     if (editingGoal) {
@@ -113,6 +114,19 @@ export default function Savings({
     setName('');
     setTargetAmount('');
     setCurrentAmount('');
+    setAccountId('');
+  };
+
+  const handleOpenCreateGoal = () => {
+    setEditingGoal(null);
+    setName('');
+    setTargetAmount('');
+    setCurrentAmount('');
+    setTargetDate(new Date().toISOString().split('T')[0]);
+    setIcon('PiggyBank');
+    setColor('#3B82F6');
+    setAccountId('');
+    setModalOpen(true);
   };
 
   const openEditModal = (goal: SavingsGoal) => {
@@ -123,6 +137,7 @@ export default function Savings({
     setTargetDate(goal.targetDate || goal.deadline || '');
     setIcon(goal.icon || 'PiggyBank');
     setColor(goal.color || '#3B82F6');
+    setAccountId(goal.accountId || '');
     setModalOpen(true);
   };
 
@@ -199,16 +214,7 @@ export default function Savings({
         </div>
 
         <button 
-          onClick={() => {
-            setEditingGoal(null);
-            setName('');
-            setTargetAmount('');
-            setCurrentAmount('');
-            setTargetDate(new Date().toISOString().split('T')[0]);
-            setIcon('PiggyBank');
-            setColor('#3B82F6');
-            setModalOpen(true);
-          }}
+          onClick={handleOpenCreateGoal}
           className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold hover:shadow-lg hover:shadow-blue-500/15 transition-all cursor-pointer self-start"
         >
           <Plus className="w-4 h-4" />
@@ -445,6 +451,12 @@ export default function Savings({
                       <div>
                         <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[140px]">{goal.name}</h3>
                         <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider font-mono">Deadline: {goal.targetDate || goal.deadline || 'No target'}</span>
+                        {goal.accountId && (
+                          <div className="text-[9px] text-blue-500 dark:text-blue-400 font-bold flex items-center gap-1 mt-0.5">
+                            <span className="inline-block w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                            Linked: {accounts.find(a => a.id === goal.accountId)?.name || 'External'}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -527,16 +539,7 @@ export default function Savings({
           <h3 className="text-base font-bold text-slate-900 dark:text-white">No savings goals recorded.</h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 max-w-[280px] mx-auto leading-relaxed">Establish structured vault targets, allocate milestone milestones, and track deposit allocations.</p>
           <button 
-            onClick={() => {
-              setEditingGoal(null);
-              setName('');
-              setTargetAmount('');
-              setCurrentAmount('');
-              setTargetDate(new Date().toISOString().split('T')[0]);
-              setIcon('PiggyBank');
-              setColor('#3B82F6');
-              setModalOpen(true);
-            }}
+            onClick={handleOpenCreateGoal}
             className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition-all shadow-md shadow-blue-500/15 cursor-pointer"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -650,6 +653,24 @@ export default function Savings({
                     />
                   ))}
                 </div>
+              </div>
+
+              {/* Linked Account */}
+              <div>
+                <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Linked Account (Core Finance)</label>
+                <select
+                  value={accountId}
+                  onChange={(e) => setAccountId(e.target.value)}
+                  className="w-full px-3 py-2.5 text-sm rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                >
+                  <option value="">None (Cash / External)</option>
+                  {accounts.map(acc => (
+                    <option key={acc.id} value={acc.id}>{acc.name} ({currencySymbol}{acc.balance})</option>
+                  ))}
+                </select>
+                <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">
+                  You can establish this savings target now and link an account later when you have one in Core Finance.
+                </p>
               </div>
 
               {/* Submit button */}
