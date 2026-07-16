@@ -105,8 +105,39 @@ export default function Savings({
 
     if (editingGoal) {
       onUpdateGoal(editingGoal.id, payload);
+       // Adjust linked account if currentAmount changed during edit
+      if (accountId && onAddTransaction) {
+        const diff = parsedCurrent - editingGoal.currentAmount;
+        if (diff !== 0) {
+          const targetType = diff > 0 ? 'expense' : 'income';
+          const cat = categories.find(c => c.type === targetType && c.name.toLowerCase().includes('saving')) ||
+                      categories.find(c => c.type === targetType);
+          onAddTransaction({
+            amount: Math.abs(diff),
+            type: targetType,
+            categoryId: cat?.id || '',
+            date: new Date().toISOString().split('T')[0],
+            notes: `${diff > 0 ? 'Allocation to' : 'Withdrawal from'} savings goal (Edit): ${name.trim()}`,
+            accountId: accountId
+          });
+        }
+      }
     } else {
       onAddGoal(payload);
+      // Deduct from linked account if new goal is created with initial funds
+      if (accountId && parsedCurrent > 0 && onAddTransaction) {
+        const targetType = 'expense';
+        const cat = categories.find(c => c.type === targetType && c.name.toLowerCase().includes('saving')) ||
+                    categories.find(c => c.type === targetType);
+        onAddTransaction({
+          amount: parsedCurrent,
+          type: targetType,
+          categoryId: cat?.id || '',
+          date: new Date().toISOString().split('T')[0],
+          notes: `Initial allocation to savings goal: ${name.trim()}`,
+          accountId: accountId
+        });
+      }
     }
 
     setModalOpen(false);
@@ -518,7 +549,7 @@ export default function Savings({
 
                     {/* Deposit/Withdraw trigger buttons */}
                     <button
-                      onClick={() => { setSelectedGoal(goal); setAdjustModalOpen(true); }}
+                      onClick={() => { setSelectedGoal(goal); setAdjustModalOpen(true); setSelectedAccountId(goal.accountId || ''); }}
                       className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-850 text-blue-500 dark:text-blue-400 transition-colors cursor-pointer"
                     >
                       <span>Adjust Funds</span>
