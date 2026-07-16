@@ -66,6 +66,7 @@ export default function Savings({
   // Modal State for Editing goal
   const [editingGoal, setEditingGoal] = useState<SavingsGoal | null>(null);
   const [accountId, setAccountId] = useState('');
+
   // Confetti celebration state
   const [showConfetti, setShowConfetti] = useState(false);
 
@@ -105,7 +106,7 @@ export default function Savings({
 
     if (editingGoal) {
       onUpdateGoal(editingGoal.id, payload);
-       // Adjust linked account if currentAmount changed during edit
+      // Adjust linked account if currentAmount changed during edit
       if (accountId && onAddTransaction) {
         const diff = parsedCurrent - editingGoal.currentAmount;
         if (diff !== 0) {

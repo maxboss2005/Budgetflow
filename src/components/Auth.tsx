@@ -16,6 +16,9 @@ const requirements = [
 export default function Auth({ onAuthSuccess }: AuthProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [isForgotPassword, setIsForgotPassword] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [simulatedCode, setSimulatedCode] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -53,9 +56,42 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
         throw new Error(data.error || 'Authentication failed');
       }
 
+      if (data.verificationRequired) {
+        setIsVerifying(true);
+        setSimulatedCode(data.code || '');
+        setMessage('A 6-digit verification code has been dispatched. Enter it below to authorize this ledger.');
+        return;
+      }
+
       onAuthSuccess(data.user, data.token);
     } catch (err: any) {
       setError(err.message || 'An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setMessage('');
+    setLoading(true);
+
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code: verificationCode }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Verification failed');
+      }
+
+      onAuthSuccess(data.user, data.token);
+    } catch (err: any) {
+      setError(err.message || 'Invalid or expired verification code.');
     } finally {
       setLoading(false);
     }
@@ -153,17 +189,21 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
                 {isForgotPassword 
                   ? 'Recover Security Code' 
-                  : isLogin 
-                    ? 'Login to DevFint' 
-                    : 'Register Premium SaaS'
+                  : isVerifying
+                    ? 'Verify Security Email'
+                    : isLogin 
+                      ? 'Login to DevFint' 
+                      : 'Register Premium SaaS'
                 }
               </h2>
               <p className="text-slate-500 dark:text-slate-400 text-sm mt-1.5">
                 {isForgotPassword 
                   ? 'We will transmit access key recovery links.' 
-                  : isLogin 
-                    ? 'Welcome back. Enter authorization keys.' 
-                    : 'Get started with fully automated capital planning.'
+                  : isVerifying
+                    ? `Please enter the authorization code sent to ${email}.`
+                    : isLogin 
+                      ? 'Welcome back. Enter authorization keys.' 
+                      : 'Get started with fully automated capital planning.'
                 }
               </p>
             </div>
@@ -216,6 +256,62 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                     className="text-xs font-semibold text-blue-600 hover:text-blue-500 transition-colors"
                   >
                     Back to Secure Login
+                  </button>
+                </div>
+              </form>
+            ) : isVerifying ? (
+              <form onSubmit={handleVerifySubmit} className="space-y-4">
+                {simulatedCode && (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-mono mb-4">
+                    <div className="font-bold flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider text-amber-500">
+                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                      Sandbox Email Simulator
+                    </div>
+                    We simulated sending a 6-digit verification code to <span className="font-semibold text-slate-700 dark:text-slate-300">{email}</span>:
+                    <div className="mt-2 text-center">
+                      <span className="inline-block bg-slate-100 dark:bg-slate-950 px-4 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-lg font-bold text-blue-600 tracking-widest">{simulatedCode}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">6-Digit Verification Code</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                      placeholder="123456"
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-center tracking-widest font-mono placeholder:text-slate-400"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading || verificationCode.length !== 6}
+                  className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-all hover:shadow-lg hover:shadow-blue-500/15 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? 'Verifying Ledger...' : 'Verify & Authorize Account'}
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+
+                <div className="text-center mt-4">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsVerifying(false);
+                      setSimulatedCode('');
+                      setVerificationCode('');
+                      setMessage('');
+                      setError('');
+                    }}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-500 transition-colors"
+                  >
+                    Cancel & Return
                   </button>
                 </div>
               </form>
@@ -362,7 +458,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 <span>Workspace Sandboxed Demo Credentials</span>
               </div>
               <p className="text-[11px] text-slate-400 text-center leading-relaxed max-w-[280px]">
-                Enter <strong className="text-slate-700 dark:text-slate-300 font-mono">user@devfint.com</strong> with security key <strong className="text-slate-700 dark:text-slate-300 font-mono">password123</strong> to launch immediate pre-populated demo records.
+                Enter <strong className="text-slate-700 dark:text-slate-300 font-mono">user@budgetflow.com</strong> with security key <strong className="text-slate-700 dark:text-slate-300 font-mono">password123</strong> to launch immediate pre-populated demo records.
               </p>
             </div>
           </div>

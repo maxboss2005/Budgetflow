@@ -130,7 +130,7 @@ export default function Transactions({
       setOcrLoading(false);
     }
   };
-  
+
   // --- Filtering Logic ---
   const filteredTransactions = transactions.filter(t => {
     // 1. Search Query
@@ -758,12 +758,12 @@ export default function Transactions({
                 className={`
                   p-4 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center transition-all cursor-pointer
                   ${dragActive 
-                    ? 'border-blue-500 bg-blue-500/5'
+                    ? 'border-blue-500 bg-blue-500/5' 
                     : ocrLoading
                       ? 'border-blue-500/40 bg-blue-500/[0.02]'
-                    : receiptBase64 
-                      ? 'border-emerald-500/40 bg-emerald-500/[0.02]' 
-                      : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-950/20'}
+                      : receiptBase64 
+                        ? 'border-emerald-500/40 bg-emerald-500/[0.02]' 
+                        : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-950/20'}
                 `}
                 onDragEnter={handleDrag}
                 onDragLeave={handleDrag}
@@ -794,14 +794,14 @@ export default function Transactions({
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">{receiptName || 'Attached_Receipt.png'}</p>
                       <div className="flex items-center gap-3 mt-1.5">
-                      <button 
-                        type="button" 
-                        onClick={(e) => { e.stopPropagation(); setReceiptBase64(''); setReceiptName(''); }}
-                        className="text-[10px] font-bold text-red-500 hover:text-red-600 uppercase cursor-pointer"
-                      >
-                        Purge attachment
-                      </button>
-                      <button 
+                        <button 
+                          type="button" 
+                          onClick={(e) => { e.stopPropagation(); setReceiptBase64(''); setReceiptName(''); }}
+                          className="text-[10px] font-bold text-red-500 hover:text-red-600 uppercase cursor-pointer"
+                        >
+                          Purge attachment
+                        </button>
+                        <button 
                           type="button" 
                           onClick={(e) => { e.stopPropagation(); runReceiptOcr(receiptBase64); }}
                           className="text-[10px] font-bold text-blue-500 hover:text-blue-600 uppercase flex items-center gap-0.5 cursor-pointer"
@@ -1025,16 +1025,16 @@ export default function Transactions({
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
-                      <a 
-                        href={viewingTx.receiptUrl} 
-                        download={`receipt_${viewingTx.id}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold text-xs transition-colors cursor-pointer"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Download Document</span>
-                      </a>
+                        <a 
+                          href={viewingTx.receiptUrl} 
+                          download={`receipt_${viewingTx.id}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 font-bold text-xs transition-colors cursor-pointer"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          <span>Download Document</span>
+                        </a>
                         <button 
                           onClick={() => {
                             if (confirm('Are you sure you want to permanently delete this receipt document from the ledger entry?')) {

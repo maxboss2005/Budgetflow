@@ -776,84 +776,85 @@ export class Database {
 
   // --- Seed Data Setup ---
   public seedUserData(userId: string) {
-      const now = new Date();
-      const getPastDate = (daysAgo: number) => {
-        const d = new Date(now);
-        d.setDate(d.getDate() - daysAgo);
-        return d.toISOString().split('T')[0];
-      };
+    const now = new Date();
+    const getPastDate = (daysAgo: number) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() - daysAgo);
+      return d.toISOString().split('T')[0];
+    };
 
-      // Seed categories (custom Gym & Fitness)
-      this.createCategory(userId, 'Gym & Fitness', 'expense', '#EC4899', 'Dumbbell');
+    // Seed categories (custom Gym & Fitness)
+    this.createCategory(userId, 'Gym & Fitness', 'expense', '#EC4899', 'Dumbbell');
 
-      // Seed Core Accounts
-      const accCash = this.createAccount(userId, { name: 'Cash Wallet', type: 'cash', balance: 450, color: '#10B981' });
-      const accChase = this.createAccount(userId, { name: 'Chase Checking', type: 'bank', balance: 3200, color: '#3B82F6' });
-      const accSavings = this.createAccount(userId, { name: 'High-Yield Savings', type: 'savings', balance: 18000, color: '#8B5CF6' });
-      const accCrypto = this.createAccount(userId, { name: 'Crypto Wallet', type: 'crypto', balance: 6200, color: '#F59E0B' });
+    // Seed Core Accounts
+    const accCash = this.createAccount(userId, { name: 'Cash Wallet', type: 'cash', balance: 450, color: '#10B981' });
+    const accChase = this.createAccount(userId, { name: 'Chase Checking', type: 'bank', balance: 3200, color: '#3B82F6' });
+    const accSavings = this.createAccount(userId, { name: 'High-Yield Savings', type: 'savings', balance: 18000, color: '#8B5CF6' });
+    const accCrypto = this.createAccount(userId, { name: 'Crypto Wallet', type: 'crypto', balance: 6200, color: '#F59E0B' });
 
-      // Seed Core Debts
-      this.createDebt(userId, { name: 'Federal Student Loan', type: 'loan', totalPrincipal: 15000, currentBalance: 9400, interestRate: 4.5, minMonthlyPayment: 150, dueDate: getPastDate(-15) });
-      this.createDebt(userId, { name: 'Chase Sapphire Credit Card', type: 'credit_card', totalPrincipal: 5000, currentBalance: 1200, interestRate: 19.99, minMonthlyPayment: 50, dueDate: getPastDate(-5) });
+    // Seed Core Debts
+    this.createDebt(userId, { name: 'Federal Student Loan', type: 'loan', totalPrincipal: 15000, currentBalance: 9400, interestRate: 4.5, minMonthlyPayment: 150, dueDate: getPastDate(-15) });
+    this.createDebt(userId, { name: 'Chase Sapphire Credit Card', type: 'credit_card', totalPrincipal: 5000, currentBalance: 1200, interestRate: 19.99, minMonthlyPayment: 50, dueDate: getPastDate(-5) });
 
-      // Income records
-      this.createTransaction(userId, {
-        amount: 5400,
-        type: 'income',
-        categoryId: 'cat-salary',
-        date: getPastDate(25),
-        notes: 'Monthly principal corporate salary payment',
-        isRecurring: true,
-        recurrenceRule: 'monthly',
-        accountId: accChase.id
-      });
-      this.createTransaction(userId, {
-        amount: 1200,
-        type: 'income',
-        categoryId: 'cat-freelance',
-        date: getPastDate(12),
-        notes: 'SaaS landing page redesign project payment',
-        accountId: accChase.id
-      });
-      
-      // Expenses
-      this.createTransaction(userId, {
-        amount: 1500,
-        type: 'expense',
-        categoryId: 'cat-rent',
-        date: getPastDate(28),
-        notes: 'Downtown luxury apartment monthly rent',
-        isRecurring: true,
-        recurrenceRule: 'monthly',
-        accountId: accChase.id
-      });
-      this.createTransaction(userId, {
-        amount: 120,
-        type: 'expense',
-        categoryId: 'cat-food',
-        date: getPastDate(20),
-        notes: 'Whole Foods organic weekly groceries run',
-        accountId: accChase.id
-      });
-      this.createTransaction(userId, {
-        amount: 45,
-        type: 'expense',
-        categoryId: 'cat-transport',
-        date: getPastDate(18),
-        notes: 'Uber Premium trips downtown',
-        accountId: accChase.id
-      });
-      this.createTransaction(userId, {
-        amount: 189,
-        type: 'expense',
-        categoryId: 'cat-bills',
-        date: getPastDate(14),
-        notes: 'Smart Home high speed broadband internet',
-        isRecurring: true,
-        recurrenceRule: 'monthly',
-        accountId: accChase.id
-      });
-      // Budgets
+    // Income records
+    this.createTransaction(userId, {
+      amount: 5400,
+      type: 'income',
+      categoryId: 'cat-salary',
+      date: getPastDate(25),
+      notes: 'Monthly principal corporate salary payment',
+      isRecurring: true,
+      recurrenceRule: 'monthly',
+      accountId: accChase.id
+    });
+    this.createTransaction(userId, {
+      amount: 1200,
+      type: 'income',
+      categoryId: 'cat-freelance',
+      date: getPastDate(12),
+      notes: 'SaaS landing page redesign project payment',
+      accountId: accChase.id
+    });
+
+    // Expenses
+    this.createTransaction(userId, {
+      amount: 1500,
+      type: 'expense',
+      categoryId: 'cat-rent',
+      date: getPastDate(28),
+      notes: 'Downtown luxury apartment monthly rent',
+      isRecurring: true,
+      recurrenceRule: 'monthly',
+      accountId: accChase.id
+    });
+    this.createTransaction(userId, {
+      amount: 120,
+      type: 'expense',
+      categoryId: 'cat-food',
+      date: getPastDate(20),
+      notes: 'Whole Foods organic weekly groceries run',
+      accountId: accChase.id
+    });
+    this.createTransaction(userId, {
+      amount: 45,
+      type: 'expense',
+      categoryId: 'cat-transport',
+      date: getPastDate(18),
+      notes: 'Uber Premium trips downtown',
+      accountId: accChase.id
+    });
+    this.createTransaction(userId, {
+      amount: 189,
+      type: 'expense',
+      categoryId: 'cat-bills',
+      date: getPastDate(14),
+      notes: 'Smart Home high speed broadband internet',
+      isRecurring: true,
+      recurrenceRule: 'monthly',
+      accountId: accChase.id
+    });
+
+    // Budgets
     this.createBudget(userId, { categoryId: 'all', amount: 3500, period: 'monthly', startDate: getPastDate(30), endDate: getPastDate(-30) });
     this.createBudget(userId, { categoryId: 'cat-food', amount: 500, period: 'monthly', startDate: getPastDate(30), endDate: getPastDate(-30) });
 

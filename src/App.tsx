@@ -517,6 +517,7 @@ export default function App() {
   const handleRestoreData = async (data: any): Promise<boolean> => {
     try {
       if (!data || typeof data !== 'object') return false;
+
       if (isOnline && token) {
         try {
           const response = await fetch('/api/finance/restore', {
@@ -556,6 +557,7 @@ export default function App() {
           console.error('Cloud restore request error:', err);
         }
       }
+
       const restoredAccounts = Array.isArray(data.accounts) ? data.accounts : [];
       const restoredDebts = Array.isArray(data.debts) ? data.debts : [];
       const restoredTransactions = Array.isArray(data.transactions) ? data.transactions : [];

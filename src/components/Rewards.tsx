@@ -407,8 +407,8 @@ export default function Rewards({
       {
         id: 'challenge_vault_builder',
         title: 'Fortune Builder',
-        desc: `Fund savings goals with a combined cumulative balance of ${currencySymbol}500 or more.`,
-        progressText: `${currencySymbol}${totalSavingsDeposited} / ${currencySymbol}500`,
+        desc: 'Fund savings goals with a combined cumulative balance of $50 or more.',
+        progressText: `${currencySymbol}${totalSavingsDeposited} / ${currencySymbol}50`,
         pct: Math.min(100, (totalSavingsDeposited / 50) * 100),
         xpReward: 200,
         isCompleted: ch2Completed

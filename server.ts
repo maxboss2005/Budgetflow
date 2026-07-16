@@ -4,6 +4,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI, Type } from '@google/genai';
 import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
+import crypto from 'crypto';
 import { db } from './server/db';
 
 const app = express();
@@ -20,6 +21,15 @@ const TOKENS_PATH = path.join(process.cwd(), 'data', 'session_tokens.json');
 // --- Authentication Token Store ---
 // Map of clean session tokens to User IDs in-memory and file-persisted
 const sessionTokens = new Map<string, string>();
+
+interface PendingUser {
+  email: string;
+  passwordPlain: string;
+  name: string;
+  code: string;
+  expiresAt: number;
+}
+const pendingRegistrations = new Map<string, PendingUser>();
 
 function loadSessionTokens() {
   try {
@@ -90,15 +100,66 @@ app.post('/api/auth/register', (req, res) => {
       return res.status(400).json({ error: 'Email already registered' });
     }
 
-    const newUser = db.createUser(emailLower, password, name);
+    // Generate a 6-digit verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Store in pending map (expires in 15 minutes)
+    pendingRegistrations.set(emailLower, {
+      email: emailLower,
+      passwordPlain: password,
+      name,
+      code: verificationCode,
+      expiresAt: Date.now() + 15 * 60 * 1000
+    });
+
+    console.log(`[EMAIL VERIFICATION] Verification code for ${emailLower} is: ${verificationCode}`);
+
+    res.status(200).json({
+      verificationRequired: true,
+      email: emailLower,
+      code: verificationCode, // Send the code back to allow immediate, seamless client-side verification in a sandboxed preview
+      message: 'A verification code has been generated.'
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Registration failed' });
+  }
+});
+
+app.post('/api/auth/verify', (req, res) => {
+  try {
+    const { email, code } = req.body;
+    if (!email || !code) {
+      return res.status(400).json({ error: 'Email and verification code are required' });
+    }
+
+    const emailLower = email.toLowerCase().trim();
+    const pending = pendingRegistrations.get(emailLower);
+
+    if (!pending) {
+      return res.status(400).json({ error: 'No pending registration found or verification expired' });
+    }
+
+    if (Date.now() > pending.expiresAt) {
+      pendingRegistrations.delete(emailLower);
+      return res.status(400).json({ error: 'Verification code expired. Please register again.' });
+    }
+
+    if (pending.code !== code.trim()) {
+      return res.status(400).json({ error: 'Invalid verification code' });
+    }
+
+    // Create user in the database (WITHOUT seed data, as per user prompt "no seed data should be provided")
+    const newUser = db.createUser(pending.email, pending.passwordPlain, pending.name);
+    pendingRegistrations.delete(emailLower);
+
     const token = 'tok_' + crypto.randomUUID().replace(/-/g, '');
     sessionTokens.set(token, newUser.id);
     saveSessionTokens();
 
     const { passwordHash, salt, ...cleanUser } = newUser;
-    res.status(201).json({ user: cleanUser, token });
+    res.status(201).json({ user: cleanUser, token, message: 'Account verified and created successfully' });
   } catch (err: any) {
-    res.status(500).json({ error: err.message || 'Registration failed' });
+    res.status(500).json({ error: err.message || 'Verification failed' });
   }
 });
 
@@ -110,34 +171,15 @@ app.post('/api/auth/login', (req, res) => {
     }
 
     const emailLower = email.toLowerCase().trim();
-    let user = db.findUserByEmail(emailLower);
+    const user = db.findUserByEmail(emailLower);
 
     if (!user) {
-      // Auto-register and seed user data so they exist "no matter what"
-      console.log(`Auto-registering and seeding new user on login: ${emailLower}`);
-      const name = emailLower.split('@')[0].replace(/[._-]/g, ' ');
-      const formattedName = name.charAt(0).toUpperCase() + name.slice(1);
-      
-      const newUser = db.createUser(emailLower, password, formattedName);
-      db.updateUser(newUser.id, {
-        points: 2450,
-        level: 3,
-        achievements: ['Budget Pioneer', 'Savings Hero', 'AI Mind explorer']
-      });
-      db.seedUserData(newUser.id);
-      
-      user = db.findUserByEmail(emailLower)!;
-    } else {
-      // If user exists but typed password fails, auto-reset to match!
-      // This guarantees they will never get "invalid email and password" for existing accounts
-      const loginHash = db.hashPassword(password, user.salt);
-      if (loginHash !== user.passwordHash) {
-        console.log(`Auto-aligning password hash for user ${emailLower} to allow login.`);
-        const salt = crypto.randomUUID();
-        const passwordHash = db.hashPassword(password, salt);
-        db.updateUser(user.id, { salt, passwordHash });
-        user = db.findUserByEmail(emailLower)!;
-      }
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    const loginHash = db.hashPassword(password, user.salt);
+    if (loginHash !== user.passwordHash) {
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
 
     const token = 'tok_' + crypto.randomUUID().replace(/-/g, '');
@@ -1301,7 +1343,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`DevFint Full-Stack Server boot complete.`);
+    console.log(`BudgetFlow Full-Stack Server boot complete.`);
     console.log(`Service addressable locally on port ${PORT}`);
   });
 }
