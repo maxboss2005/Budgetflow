@@ -19,7 +19,8 @@ import {
   ChevronRight,
   HelpCircle,
   Eye,
-  Download
+  Download,
+  Loader2
 } from 'lucide-react';
 import { Transaction, Category } from '../types';
 import { IconResolver } from './Dashboard';
@@ -87,6 +88,49 @@ export default function Transactions({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
 
+  // Gemini AI OCR States
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [ocrError, setOcrError] = useState('');
+
+  const runReceiptOcr = async (base64Data: string) => {
+    setOcrLoading(true);
+    setOcrError('');
+    try {
+      const response = await fetch('/api/finance/receipt-ocr', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ fileData: base64Data })
+      });
+
+      if (!response.ok) {
+        throw new Error('OCR parsing request failed');
+      }
+
+      const data = await response.json();
+      if (data.amount !== undefined && data.amount !== null) {
+        setAmount(data.amount.toString());
+      }
+      if (data.date) {
+        setDate(data.date);
+      }
+      if (data.merchant) {
+        setNotes(data.merchant);
+      }
+
+      if (awardPoints) {
+        awardPoints(50, 'Receipt parsed with Gemini AI OCR');
+      }
+    } catch (err: any) {
+      console.error('Failed Gemini OCR scan:', err);
+      setOcrError('AI OCR scanning unavailable. Please input amount and date manually.');
+    } finally {
+      setOcrLoading(false);
+    }
+  };
+  
   // --- Filtering Logic ---
   const filteredTransactions = transactions.filter(t => {
     // 1. Search Query
@@ -215,8 +259,10 @@ export default function Transactions({
     }
     const reader = new FileReader();
     reader.onloadend = () => {
-      setReceiptBase64(reader.result as string);
+      const base64 = reader.result as string;
+      setReceiptBase64(base64);
       setReceiptName(file.name);
+      runReceiptOcr(base64);
     };
     reader.readAsDataURL(file);
   };
@@ -712,7 +758,9 @@ export default function Transactions({
                 className={`
                   p-4 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center transition-all cursor-pointer
                   ${dragActive 
-                    ? 'border-blue-500 bg-blue-500/5' 
+                    ? 'border-blue-500 bg-blue-500/5'
+                    : ocrLoading
+                      ? 'border-blue-500/40 bg-blue-500/[0.02]'
                     : receiptBase64 
                       ? 'border-emerald-500/40 bg-emerald-500/[0.02]' 
                       : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-950/20'}
@@ -721,30 +769,47 @@ export default function Transactions({
                 onDragLeave={handleDrag}
                 onDragOver={handleDrag}
                 onDrop={handleDrop}
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => !ocrLoading && fileInputRef.current?.click()}
               >
                 <input 
                   type="file"
                   ref={fileInputRef}
                   onChange={handleFileChange}
                   accept="image/*"
+                  disabled={ocrLoading}
                   className="hidden"
                 />
 
-                {receiptBase64 ? (
+                {ocrLoading ? (
+                  <div className="flex flex-col items-center justify-center py-2 space-y-2">
+                    <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+                    <p className="text-[11px] font-bold text-blue-500 animate-pulse">🪄 Gemini AI is scanning receipt...</p>
+                    <p className="text-[9px] text-slate-400">Extracting amount, date & merchant...</p>
+                  </div>
+                ) : receiptBase64 ? (
                   <div className="flex items-center gap-3 text-left w-full">
                     <div className="w-10 h-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 flex-shrink-0">
                       <FileImage className="w-5 h-5" />
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">{receiptName || 'Attached_Receipt.png'}</p>
+                      <div className="flex items-center gap-3 mt-1.5">
                       <button 
                         type="button" 
                         onClick={(e) => { e.stopPropagation(); setReceiptBase64(''); setReceiptName(''); }}
-                        className="text-[10px] font-bold text-red-500 hover:text-red-600 uppercase mt-0.5"
+                        className="text-[10px] font-bold text-red-500 hover:text-red-600 uppercase cursor-pointer"
                       >
                         Purge attachment
                       </button>
+                      <button 
+                          type="button" 
+                          onClick={(e) => { e.stopPropagation(); runReceiptOcr(receiptBase64); }}
+                          className="text-[10px] font-bold text-blue-500 hover:text-blue-600 uppercase flex items-center gap-0.5 cursor-pointer"
+                        >
+                          <Sparkles className="w-3 h-3 text-blue-500 animate-pulse" />
+                          <span>AI Re-scan</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -755,6 +820,13 @@ export default function Transactions({
                   </>
                 )}
               </div>
+
+              {ocrError && (
+                <p className="text-[10px] font-semibold text-amber-500 flex items-center gap-1 mt-1 px-1">
+                  <AlertCircle className="w-3 h-3" />
+                  <span>{ocrError}</span>
+                </p>
+              )}
 
               {/* Form submit */}
               <button
@@ -952,6 +1024,7 @@ export default function Transactions({
                           {viewingTx.receiptUrl.startsWith('data:') ? 'Embedded Base64 Image Asset' : viewingTx.receiptUrl}
                         </span>
                       </div>
+                      <div className="flex items-center gap-2">
                       <a 
                         href={viewingTx.receiptUrl} 
                         download={`receipt_${viewingTx.id}`}
@@ -962,6 +1035,20 @@ export default function Transactions({
                         <Download className="w-3.5 h-3.5" />
                         <span>Download Document</span>
                       </a>
+                        <button 
+                          onClick={() => {
+                            if (confirm('Are you sure you want to permanently delete this receipt document from the ledger entry?')) {
+                              onUpdateTransaction(viewingTx.id, { receiptUrl: '' });
+                              setViewingTx(prev => prev ? { ...prev, receiptUrl: undefined } : null);
+                            }
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/40 text-red-600 dark:text-red-400 font-bold text-xs transition-colors cursor-pointer"
+                          title="Delete this receipt image"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete Receipt</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ) : (
