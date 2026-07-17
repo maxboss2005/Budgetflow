@@ -641,18 +641,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
             )}
           </div>
 
-          {/* Seed Data Reminder */}
-          <div className="mt-6 text-center">
-            <div className="inline-flex flex-col items-center gap-1.5 p-3.5 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-800/50">
-              <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400 font-mono">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>Workspace Sandboxed Demo Credentials</span>
-              </div>
-              <p className="text-[11px] text-slate-400 text-center leading-relaxed max-w-[280px]">
-                Enter <strong className="text-slate-700 dark:text-slate-300 font-mono">user@devfint.com</strong> with security key <strong className="text-slate-700 dark:text-slate-300 font-mono">password123</strong> to launch immediate pre-populated demo records.
-              </p>
-            </div>
-          </div>
+          {/* Seed Data Reminder removed */}
         </div>
       </div>
     </div>
