@@ -41,6 +41,7 @@ import {
   ReferenceLine 
 } from 'recharts';
 import { Account, Debt, Transaction, Category } from '../types';
+import DigitalAssetLedger from './DigitalAssetLedger';
 
 interface CoreFinanceProps {
   accounts: Account[];
@@ -73,7 +74,7 @@ export default function CoreFinance({
 }: CoreFinanceProps) {
 
   // Global Hub Navigation Tabs
-  const [activeTab, setActiveTab] = useState<'accounts' | 'debts' | 'emergency' | 'forecasting'>('accounts');
+  const [activeTab, setActiveTab] = useState<'accounts' | 'debts' | 'emergency' | 'forecasting' | 'ledger'>('accounts');
 
   // --- 1. Accounts & Transfers State ---
   const [addAccountOpen, setAddAccountOpen] = useState(false);
@@ -581,6 +582,14 @@ export default function CoreFinance({
         >
           <TrendingUp className="w-4.5 h-4.5" />
           <span>Cash Forecasting</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('ledger')}
+          className={`flex items-center gap-2 py-2.5 px-4 rounded-xl text-sm font-semibold transition-all cursor-pointer whitespace-nowrap ${activeTab === 'ledger' ? 'bg-blue-600 text-white shadow-md shadow-blue-500/10' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800/60'}`}
+          id="tab-ledger"
+        >
+          <Coins className="w-4.5 h-4.5" />
+          <span>Multi-Currency & Asset Ledger</span>
         </button>
       </div>
 
@@ -1572,6 +1581,11 @@ export default function CoreFinance({
             </div>
           </div>
         </div>
+      )}
+
+      {/* --- TAB VIEW 5: Multi-currency & Asset Ledger --- */}
+      {activeTab === 'ledger' && (
+        <DigitalAssetLedger />
       )}
     </div>
   );
