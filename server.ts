@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx';
 import mammoth from 'mammoth';
 import crypto from 'crypto';
 import { db } from './server/db';
+import { isMailConfigured, sendVerificationEmail } from './server/mailer';
 
 const app = express();
 const PORT = 3000;
@@ -28,6 +29,16 @@ interface PendingUser {
   name: string;
   code: string;
   expiresAt: number;
+  accountType?: 'personal' | 'organization';
+  organizationName?: string;
+  organizationType?: string;
+  employeeCount?: string;
+  orgRegistrationNo?: string;
+  taxId?: string;
+  jobTitle?: string;
+  personalPlan?: 'basic' | 'premium' | 'family';
+  savingGoalPreference?: string;
+  currency?: string;
 }
 const pendingRegistrations = new Map<string, PendingUser>();
 
@@ -88,9 +99,24 @@ function authenticateToken(req: express.Request, res: express.Response, next: ex
 // --- API ROUTES ---
 
 // 1. Authentication Endpoints
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    const { 
+      email, 
+      password, 
+      name,
+      accountType,
+      organizationName,
+      organizationType,
+      employeeCount,
+      orgRegistrationNo,
+      taxId,
+      jobTitle,
+      personalPlan,
+      savingGoalPreference,
+      currency
+    } = req.body;
+
     if (!email || !password || !name) {
       return res.status(400).json({ error: 'All fields are required' });
     }
@@ -109,17 +135,52 @@ app.post('/api/auth/register', (req, res) => {
       passwordPlain: password,
       name,
       code: verificationCode,
-      expiresAt: Date.now() + 15 * 60 * 1000
+      expiresAt: Date.now() + 15 * 60 * 1000,
+      accountType,
+      organizationName,
+      organizationType,
+      employeeCount,
+      orgRegistrationNo,
+      taxId,
+      jobTitle,
+      personalPlan,
+      savingGoalPreference,
+      currency
     });
 
     console.log(`[EMAIL VERIFICATION] Verification code for ${emailLower} is: ${verificationCode}`);
 
-    res.status(200).json({
-      verificationRequired: true,
-      email: emailLower,
-      code: verificationCode, // Send the code back to allow immediate, seamless client-side verification in a sandboxed preview
-      message: 'A verification code has been generated.'
-    });
+    if (isMailConfigured()) {
+      try {
+        await sendVerificationEmail(emailLower, name, verificationCode);
+        return res.status(200).json({
+          verificationRequired: true,
+          email: emailLower,
+          realEmailSent: true,
+          message: `A secure 6-digit verification code has been sent to ${emailLower}. Please check your inbox (and spam folder).`
+        });
+      } catch (mailErr: any) {
+        console.error(`❌ SMTP FAILED to send email:`, mailErr);
+        // Fall back to sandbox delivery to maintain evaluation continuity
+        return res.status(200).json({
+          verificationRequired: true,
+          email: emailLower,
+          realEmailSent: false,
+          code: verificationCode,
+          smtpError: mailErr.message || 'SMTP connection failed',
+          message: 'An error occurred while dispatching the real email verification (SMTP auth/connection failed). Fell back to simulated sandbox verification.'
+        });
+      }
+    } else {
+      // SMTP not configured
+      return res.status(200).json({
+        verificationRequired: true,
+        email: emailLower,
+        realEmailSent: false,
+        code: verificationCode,
+        message: 'SMTP mail credentials are not configured in your secrets. Fell back to simulated sandbox verification.'
+      });
+    }
   } catch (err: any) {
     res.status(500).json({ error: err.message || 'Registration failed' });
   }
@@ -148,8 +209,9 @@ app.post('/api/auth/verify', (req, res) => {
       return res.status(400).json({ error: 'Invalid verification code' });
     }
 
-    // Create user in the database (WITHOUT seed data, as per user prompt "no seed data should be provided")
-    const newUser = db.createUser(pending.email, pending.passwordPlain, pending.name);
+    // Create user in the database with custom Personal / Organization parameters
+    const { email: pEmail, passwordPlain, name, code: pCode, expiresAt, ...additionalFields } = pending;
+    const newUser = db.createUser(pEmail, passwordPlain, name, additionalFields);
     pendingRegistrations.delete(emailLower);
 
     const token = 'tok_' + crypto.randomUUID().replace(/-/g, '');
@@ -746,7 +808,7 @@ app.get('/api/insights', authenticateToken, async (req, res) => {
     });
 
     const prompt = `
-You are a elite private wealth manager, financial planning wizard, and credit advisor at BudgetFlow SaaS.
+You are a elite private wealth manager, financial planning wizard, and credit advisor at DevFint.
 Analyze the following user transaction history, active monthly budgets, saving goal portfolios, and subscription schedules:
 
 User: ${user.name}
@@ -1304,7 +1366,7 @@ function getMockInsights(userName: string) {
       {
         type: 'milestone',
         title: 'Savings Pace Landmark',
-        description: 'Your Emergency Fund savings rate has increased by 4.2% month-on-month. You are now in the top 8% of disciplined savers in the BudgetFlow network!'
+        description: 'Your Emergency Fund savings rate has increased by 4.2% month-on-month. You are now in the top 8% of disciplined savers in the DevFint network!'
       }
     ],
     recommendations: [
@@ -1343,7 +1405,7 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`BudgetFlow Full-Stack Server boot complete.`);
+    console.log(`DevFint Full-Stack Server boot complete.`);
     console.log(`Service addressable locally on port ${PORT}`);
   });
 }

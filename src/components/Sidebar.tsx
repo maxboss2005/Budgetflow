@@ -326,7 +326,10 @@ export default function Sidebar({
             </div>
             <div className={`flex-1 min-w-0 ${isCollapsed ? 'md:hidden' : ''}`}>
               <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{user.name}</p>
-              <p className="text-xs text-slate-400 dark:text-slate-500 truncate font-mono">{user.email}</p>
+              <p className="text-[10px] text-slate-400 dark:text-slate-500 truncate font-mono">{user.email}</p>
+              <span className="text-[9px] font-bold text-blue-600 dark:text-blue-400 block mt-1 uppercase tracking-wider font-mono">
+                👤 Personal Account
+              </span>
             </div>
             
             <button 

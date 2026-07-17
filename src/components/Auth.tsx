@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Wallet, ArrowRight, ShieldCheck, Landmark, Sparkles, Check, Eye, EyeOff, X } from 'lucide-react';
+import { Mail, Lock, User, Wallet, ArrowRight, ShieldCheck, Landmark, Sparkles, Check, Eye, EyeOff, X, Building2, Users, Globe, Briefcase } from 'lucide-react';
 
 interface AuthProps {
   onAuthSuccess: (user: any, token: string) => void;
@@ -19,6 +19,8 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');
   const [simulatedCode, setSimulatedCode] = useState('');
+  const [realEmailSent, setRealEmailSent] = useState(false);
+  const [smtpError, setSmtpError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -26,6 +28,11 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // Registration Preferences (Personal Only)
+  const [personalPlan, setPersonalPlan] = useState<'basic' | 'premium' | 'family'>('premium');
+  const [savingGoalPreference, setSavingGoalPreference] = useState('Emergency Fund');
+  const [currency, setCurrency] = useState('USD');
 
   const allRequirementsMet = isLogin || requirements.every(req => req.test(password));
 
@@ -42,7 +49,17 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
     }
 
     const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-    const body = isLogin ? { email, password } : { email, password, name };
+    const body = isLogin 
+      ? { email, password } 
+      : { 
+          email, 
+          password, 
+          name,
+          accountType: 'personal',
+          personalPlan,
+          savingGoalPreference,
+          currency
+        };
 
     try {
       const res = await fetch(endpoint, {
@@ -59,7 +76,9 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
       if (data.verificationRequired) {
         setIsVerifying(true);
         setSimulatedCode(data.code || '');
-        setMessage('A 6-digit verification code has been dispatched. Enter it below to authorize this ledger.');
+        setRealEmailSent(!!data.realEmailSent);
+        setSmtpError(data.smtpError || '');
+        setMessage(data.message || 'A 6-digit verification code has been dispatched. Enter it below to authorize this ledger.');
         return;
       }
 
@@ -261,18 +280,54 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               </form>
             ) : isVerifying ? (
               <form onSubmit={handleVerifySubmit} className="space-y-4">
-                {simulatedCode && (
-                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-mono mb-4">
-                    <div className="font-bold flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider text-amber-500">
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                      Sandbox Email Simulator
+                {realEmailSent ? (
+                  <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-blue-700 dark:text-blue-400 text-xs mb-4">
+                    <div className="font-bold flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      Real-Time Verification Sent
                     </div>
-                    We simulated sending a 6-digit verification code to <span className="font-semibold text-slate-700 dark:text-slate-300">{email}</span>:
-                    <div className="mt-2 text-center">
-                      <span className="inline-block bg-slate-100 dark:bg-slate-950 px-4 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-lg font-bold text-blue-600 tracking-widest">{simulatedCode}</span>
+                    A secure 6-digit activation key has been dispatched to <strong className="font-semibold text-slate-700 dark:text-slate-300">{email}</strong>.
+                    <div className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                      Please open your inbox (and check spam/promotions) to retrieve your code.
                     </div>
                   </div>
-                )}
+                ) : simulatedCode ? (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-mono mb-4">
+                    {smtpError ? (
+                      <>
+                        <div className="font-bold flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider text-red-500">
+                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                          SMTP Login/Auth Failed
+                        </div>
+                        <div className="text-slate-600 dark:text-slate-400 leading-normal">
+                          The server attempted to send a real email using your SMTP credentials, but authentication failed:
+                          <div className="mt-1.5 p-2 bg-red-500/5 border border-red-500/10 rounded-lg text-red-600 dark:text-red-400 font-mono text-[11px] break-words">
+                            {smtpError}
+                          </div>
+                          <p className="mt-2 text-slate-500 text-[11px]">
+                            Please check if your <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">SMTP_USER</code> and <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">SMTP_PASS</code> environment secrets are correct and updated.
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="font-bold flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider text-amber-500">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                          SMTP Not Configured
+                        </div>
+                        <div className="text-slate-600 dark:text-slate-400 leading-normal">
+                          Configure <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">SMTP_HOST</code>, <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">SMTP_USER</code>, and <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">SMTP_PASS</code> in secrets to send real emails.
+                        </div>
+                      </>
+                    )}
+                    <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-800/50 text-slate-600 dark:text-slate-400">
+                      Your simulated verification code is:
+                      <div className="mt-1.5 text-center">
+                        <span className="inline-block bg-slate-100 dark:bg-slate-950 px-4 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-lg font-bold text-blue-600 tracking-widest">{simulatedCode}</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : null}
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">6-Digit Verification Code</label>
@@ -317,116 +372,199 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
               </form>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
-                
-                {/* Name - Register only */}
-                {!isLogin && (
-                  <div>
-                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Display Name</label>
-                    <div className="relative">
-                      <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                      <input
-                        type="text"
-                        required
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="John Doe"
-                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
-                      />
+                {isLogin ? (
+                  <>
+                    {/* Email */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Security Email</label>
+                      <div className="relative">
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="you@email.com"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                        />
+                      </div>
                     </div>
-                  </div>
-                )}
 
-                {/* Email */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Security Email</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@email.com"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
-                    />
-                  </div>
-                </div>
+                    {/* Password */}
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Access Security Key</label>
+                        <button
+                          type="button"
+                          onClick={() => setIsForgotPassword(true)}
+                          className="text-[11px] font-semibold text-blue-600 hover:text-blue-500 transition-colors"
+                        >
+                          Forgot Key?
+                        </button>
+                      </div>
+                      <div className="relative">
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 focus:outline-none"
+                          title={showPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
 
-                {/* Password */}
-                <div>
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Access Security Key</label>
-                    {isLogin && (
-                      <button
-                        type="button"
-                        onClick={() => setIsForgotPassword(true)}
-                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-500 transition-colors"
-                      >
-                        Forgot Key?
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type={showPassword ? 'text' : 'password'}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
-                    />
+                    {/* Submit button */}
                     <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 focus:outline-none"
-                      title={showPassword ? 'Hide password' : 'Show password'}
+                      type="submit"
+                      disabled={loading}
+                      className="w-full mt-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-all hover:shadow-lg hover:shadow-blue-500/15 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {loading ? 'Authorizing Access...' : 'Authorize Access'}
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </>
+                ) : (
+                  // Simple Personal Registration Flow
+                  <div className="space-y-4">
+                    {/* Name */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Display Name</label>
+                      <div className="relative">
+                        <User className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          required
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          placeholder="John Doe"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Email */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Security Email</label>
+                      <div className="relative">
+                        <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="you@email.com"
+                          className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Password */}
+                    <div>
+                      <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Access Security Key</label>
+                      <div className="relative">
+                        <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
+                          className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all placeholder:text-slate-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-650 dark:hover:text-slate-200 focus:outline-none"
+                        >
+                          {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Primary Savings Goal & Starting Currency Grid */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Savings Goal</label>
+                        <select
+                          value={savingGoalPreference}
+                          onChange={(e) => setSavingGoalPreference(e.target.value)}
+                          className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+                        >
+                          <option value="Emergency Fund">Emergency Fund</option>
+                          <option value="Retirement Savings">Retirement Savings</option>
+                          <option value="Home Downpayment">Home Downpayment</option>
+                          <option value="Tech & Hardware">Tech Investment</option>
+                          <option value="Business Capital">Business Capital</option>
+                          <option value="Vacation & Travel">Travel Fund</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Base Currency</label>
+                        <select
+                          value={currency}
+                          onChange={(e) => setCurrency(e.target.value)}
+                          className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+                        >
+                          <option value="USD">USD ($)</option>
+                          <option value="EUR">EUR (€)</option>
+                          <option value="GBP">GBP (£)</option>
+                          <option value="NGN">NGN (₦)</option>
+                          <option value="CAD">CAD (C$)</option>
+                          <option value="AUD">AUD (A$)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Password Strength Requirements */}
+                    <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 space-y-2">
+                      <p className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                        Password Strength
+                      </p>
+                      <div className="grid grid-cols-1 gap-1.5">
+                        {requirements.map((req) => {
+                          const isPassed = req.test(password);
+                          return (
+                            <div key={req.id} className="flex items-center gap-2">
+                              {isPassed ? (
+                                <Check className="w-3.5 h-3.5 text-emerald-500 stroke-[2.5]" />
+                              ) : (
+                                <X className="w-3.5 h-3.5 text-red-500 stroke-[2.5]" />
+                              )}
+                              <span className={`text-[11px] transition-colors duration-150 ${
+                                isPassed 
+                                  ? 'text-emerald-600 dark:text-emerald-400 font-semibold' 
+                                  : 'text-slate-400 dark:text-slate-500 line-through decoration-slate-300/40 dark:decoration-slate-800'
+                              }`}>
+                                {req.text}
+                              </span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Register Submit Button */}
+                    <button
+                      type="submit"
+                      disabled={loading || !name || !email || !password || !allRequirementsMet}
+                      className="w-full mt-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all hover:shadow-lg hover:shadow-blue-500/15 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Creating Ledger...' : 'Create Ledger & Register'}
+                      <ArrowRight className="w-4 h-4" />
                     </button>
                   </div>
-                </div>
-
-                {/* Password Requirements - Register only */}
-                {!isLogin && (
-                  <div className="mt-3 p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950 border border-slate-200/60 dark:border-slate-800/80 space-y-2">
-                    <p className="text-[10px] font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                      Password Requirements
-                    </p>
-                    <div className="grid grid-cols-1 gap-1.5">
-                      {requirements.map((req) => {
-                        const isPassed = req.test(password);
-                        return (
-                          <div key={req.id} className="flex items-center gap-2">
-                            {isPassed ? (
-                              <Check className="w-4 h-4 text-emerald-500 stroke-[2.5]" />
-                            ) : (
-                              <X className="w-4 h-4 text-red-500 stroke-[2.5]" />
-                            )}
-                            <span className={`text-[11px] transition-colors duration-250 ${
-                              isPassed 
-                                ? 'text-emerald-600 dark:text-emerald-400 font-semibold' 
-                                : 'text-slate-400 dark:text-slate-500 line-through decoration-slate-300/60 dark:decoration-slate-850'
-                            }`}>
-                              {req.text}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
                 )}
-
-                {/* Submit button */}
-                <button
-                  type="submit"
-                  disabled={loading || !allRequirementsMet}
-                  className="w-full mt-2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium text-sm transition-all hover:shadow-lg hover:shadow-blue-500/15 flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:shadow-none"
-                  title={!allRequirementsMet ? "Please fulfill all password requirements to register" : ""}
-                >
-                  {loading ? 'Authorizing Access...' : isLogin ? 'Authorize Access' : 'Create Ledger & Register'}
-                  <ArrowRight className="w-4 h-4" />
-                </button>
 
                 {/* Switch Login/Register */}
                 <div className="text-center mt-6 pt-4 border-t border-slate-100 dark:border-slate-800/80">
@@ -458,7 +596,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                 <span>Workspace Sandboxed Demo Credentials</span>
               </div>
               <p className="text-[11px] text-slate-400 text-center leading-relaxed max-w-[280px]">
-                Enter <strong className="text-slate-700 dark:text-slate-300 font-mono">user@budgetflow.com</strong> with security key <strong className="text-slate-700 dark:text-slate-300 font-mono">password123</strong> to launch immediate pre-populated demo records.
+                Enter <strong className="text-slate-700 dark:text-slate-300 font-mono">user@devfint.com</strong> with security key <strong className="text-slate-700 dark:text-slate-300 font-mono">password123</strong> to launch immediate pre-populated demo records.
               </p>
             </div>
           </div>

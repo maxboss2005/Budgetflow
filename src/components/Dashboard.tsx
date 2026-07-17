@@ -50,7 +50,7 @@ import {
   BarChart, 
   Bar 
 } from 'recharts';
-import { Transaction, Budget, SavingsGoal, Subscription, Category } from '../types';
+import { Transaction, Budget, SavingsGoal, Subscription, Category, User } from '../types';
 import { calculateStreak } from '../lib/streak';
 
 // Dynamic Icon Resolver mapping strings to Lucide Components
@@ -63,6 +63,7 @@ export const IconResolver = ({ name, className, style }: { name: string; classNa
 };
 
 interface DashboardProps {
+  user?: User | null;
   transactions: Transaction[];
   budgets: Budget[];
   goals: SavingsGoal[];
@@ -80,6 +81,7 @@ interface DashboardProps {
 }
 
 export default function Dashboard({
+  user,
   transactions,
   budgets,
   goals,
@@ -268,8 +270,12 @@ export default function Dashboard({
       {/* Header Bar */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Workspace Intelligence</h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Real-time financial positions, automated budgeting alerts, and asset progress.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+            Workspace Intelligence
+          </h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            Real-time financial positions, automated budgeting alerts, and asset progress.
+          </p>
         </div>
 
         <div className="flex items-center gap-3">
@@ -783,7 +789,9 @@ export default function Dashboard({
         <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 relative overflow-hidden transition-all hover:shadow-md">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl"></div>
           <div className="flex justify-between items-start mb-4">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Net Liquidity</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Net Liquidity
+            </span>
             <div className="w-10 h-10 rounded-xl bg-blue-500/10 dark:bg-blue-500/15 flex items-center justify-center">
               <Wallet className="w-5 h-5 text-blue-500" />
             </div>
@@ -792,7 +800,9 @@ export default function Dashboard({
             <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-mono">
               {formatCurrency(currentBalance)}
             </h3>
-            <p className="text-[11px] text-slate-400 font-medium">All-time unified capital balance</p>
+            <p className="text-[11px] text-slate-400 font-medium">
+              All-time unified capital balance
+            </p>
           </div>
         </div>
 
@@ -800,7 +810,9 @@ export default function Dashboard({
         <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 relative overflow-hidden transition-all hover:shadow-md">
           <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full blur-2xl"></div>
           <div className="flex justify-between items-start mb-4">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Monthly Income</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Monthly Income
+            </span>
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 dark:bg-emerald-500/15 flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-emerald-500" />
             </div>
@@ -820,7 +832,9 @@ export default function Dashboard({
         <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 relative overflow-hidden transition-all hover:shadow-md">
           <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full blur-2xl"></div>
           <div className="flex justify-between items-start mb-4">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Monthly Expenses</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Monthly Expenses
+            </span>
             <div className="w-10 h-10 rounded-xl bg-red-500/10 dark:bg-red-500/15 flex items-center justify-center">
               <TrendingDown className="w-5 h-5 text-red-500" />
             </div>
@@ -840,7 +854,9 @@ export default function Dashboard({
         <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/80 rounded-3xl p-6 relative overflow-hidden transition-all hover:shadow-md">
           <div className="absolute top-0 right-0 w-24 h-24 bg-purple-500/5 rounded-full blur-2xl"></div>
           <div className="flex justify-between items-start mb-4">
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Savings Vault</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Savings Vault
+            </span>
             <div className="w-10 h-10 rounded-xl bg-purple-500/10 dark:bg-purple-500/15 flex items-center justify-center">
               <PiggyBank className="w-5 h-5 text-purple-500" />
             </div>
@@ -849,7 +865,9 @@ export default function Dashboard({
             <h3 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white font-mono">
               {formatCurrency(totalSavings)}
             </h3>
-            <p className="text-[11px] text-slate-400 font-medium">Accumulated across active goals</p>
+            <p className="text-[11px] text-slate-400 font-medium">
+              Accumulated across active goals
+            </p>
           </div>
         </div>
 

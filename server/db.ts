@@ -78,7 +78,7 @@ export class Database {
         if (this.schema.users) {
           Object.values(this.schema.users).forEach((u) => {
             const emailLower = u.email.toLowerCase().trim();
-            const shouldBeAdmin = emailLower === 'babatundemoyo05@gmail.com' || emailLower.startsWith('admin') || emailLower.includes('@admin.') || emailLower === 'admin@budgetflow.com';
+            const shouldBeAdmin = emailLower === 'babatundemoyo05@gmail.com' || emailLower.startsWith('admin') || emailLower.includes('@admin.') || emailLower === 'admin@devfint.com';
             if (shouldBeAdmin && u.role !== 'admin') {
               u.role = 'admin';
               hasChanges = true;
@@ -119,7 +119,7 @@ export class Database {
   }
 
   // --- User Operations ---
-  public createUser(email: string, password: string, name: string): UserDBRecord {
+  public createUser(email: string, password: string, name: string, additionalFields?: Partial<User>): UserDBRecord {
     const emailLower = email.toLowerCase().trim();
     if (this.schema.users[emailLower]) {
       throw new Error('User already exists');
@@ -130,14 +130,14 @@ export class Database {
     const id = 'usr_' + crypto.randomBytes(8).toString('hex');
 
     // Admin role condition
-    const isUserAdmin = emailLower === 'babatundemoyo05@gmail.com' || emailLower.startsWith('admin') || emailLower.includes('@admin.') || emailLower === 'admin@budgetflow.com';
+    const isUserAdmin = emailLower === 'babatundemoyo05@gmail.com' || emailLower.startsWith('admin') || emailLower.includes('@admin.') || emailLower === 'admin@devfint.com';
     const role = isUserAdmin ? 'admin' : 'user';
 
     const newUser: UserDBRecord = {
       id,
       email: emailLower,
       name,
-      currency: 'USD',
+      currency: additionalFields?.currency || 'USD',
       language: 'en',
       theme: 'dark',
       notificationsEnabled: true,
@@ -148,6 +148,7 @@ export class Database {
       role,
       passwordHash,
       salt,
+      ...additionalFields,
     };
 
     this.schema.users[emailLower] = newUser;
@@ -867,16 +868,16 @@ export class Database {
     this.createSubscription(userId, { name: 'Github Copilot Pro', amount: 10.00, billingCycle: 'monthly', nextBillingDate: getPastDate(-5), status: 'active', categoryId: 'cat-education', notes: 'AI pair programmer', renewalReminderEnabled: true });
 
     // Notifications
-    this.createNotification(userId, 'system', 'Welcome to BudgetFlow! Explore your pre-populated high-net-worth developer workspace.');
+    this.createNotification(userId, 'system', 'Welcome to DevFint! Explore your pre-populated high-net-worth developer workspace.');
   }
 
   private ensureSeedData() {
     // If we have no users, we create the pre-populated premium user account
-    const demoEmail = 'user@budgetflow.com';
+    const demoEmail = 'user@devfint.com';
     let demoUser = this.findUserByEmail(demoEmail);
 
     if (!demoUser) {
-      console.log('Seeding database with premium demo account user@budgetflow.com (password123)...');
+      console.log('Seeding database with premium demo account user@devfint.com (password123)...');
       demoUser = this.createUser(demoEmail, 'password123', 'John Doe');
       const userId = demoUser.id;
       

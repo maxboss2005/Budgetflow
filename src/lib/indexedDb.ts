@@ -5,111 +5,209 @@ const DB_VERSION = 2;
 
 export class LocalDatabase {
   private db: IDBDatabase | null = null;
+  private initPromise: Promise<void> | null = null;
+  private isFallback = false;
+  private memoryStores: Record<string, Map<string, any>> = {};
+
+  private initMemoryStores() {
+    this.isFallback = true;
+    const stores = ['transactions', 'budgets', 'goals', 'subscriptions', 'categories', 'accounts', 'debts', 'sync_queue'];
+    stores.forEach(s => {
+      this.memoryStores[s] = new Map();
+    });
+  }
 
   public init(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
+    if (this.initPromise) {
+      return this.initPromise;
+    }
 
-      request.onerror = () => {
-        console.error('IndexedDB failed to open.');
-        reject(request.error);
-      };
-
-      request.onsuccess = () => {
-        this.db = request.result;
+    this.initPromise = new Promise((resolve) => {
+      if (this.db || this.isFallback) {
         resolve();
-      };
+        return;
+      }
 
-      request.onupgradeneeded = (event) => {
-        const db = request.result;
-        
-        // Caching stores
-        if (!db.objectStoreNames.contains('transactions')) {
-          db.createObjectStore('transactions', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('budgets')) {
-          db.createObjectStore('budgets', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('goals')) {
-          db.createObjectStore('goals', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('subscriptions')) {
-          db.createObjectStore('subscriptions', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('categories')) {
-          db.createObjectStore('categories', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('accounts')) {
-          db.createObjectStore('accounts', { keyPath: 'id' });
-        }
-        if (!db.objectStoreNames.contains('debts')) {
-          db.createObjectStore('debts', { keyPath: 'id' });
-        }
+      if (typeof indexedDB === 'undefined') {
+        console.warn('indexedDB is not available in this environment. Falling back to in-memory database.');
+        this.initMemoryStores();
+        resolve();
+        return;
+      }
 
-        // Action queue for offline sync
-        if (!db.objectStoreNames.contains('sync_queue')) {
-          db.createObjectStore('sync_queue', { keyPath: 'id' });
-        }
-      };
+      try {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+        request.onerror = (event) => {
+          console.warn('IndexedDB failed to open. Falling back to in-memory database.', event);
+          this.initMemoryStores();
+          resolve();
+        };
+
+        request.onsuccess = () => {
+          const dbInstance = request.result;
+          this.db = dbInstance;
+
+          dbInstance.onversionchange = () => {
+            console.warn('IndexedDB version change detected. Closing connection to prevent blocking.');
+            dbInstance.close();
+            if (this.db === dbInstance) {
+              this.db = null;
+              this.initPromise = null;
+            }
+          };
+
+          dbInstance.onclose = () => {
+            console.warn('IndexedDB connection closed.');
+            if (this.db === dbInstance) {
+              this.db = null;
+              this.initPromise = null;
+            }
+          };
+
+          resolve();
+        };
+
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          
+          // Caching stores
+          if (!db.objectStoreNames.contains('transactions')) {
+            db.createObjectStore('transactions', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('budgets')) {
+            db.createObjectStore('budgets', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('goals')) {
+            db.createObjectStore('goals', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('subscriptions')) {
+            db.createObjectStore('subscriptions', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('categories')) {
+            db.createObjectStore('categories', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('accounts')) {
+            db.createObjectStore('accounts', { keyPath: 'id' });
+          }
+          if (!db.objectStoreNames.contains('debts')) {
+            db.createObjectStore('debts', { keyPath: 'id' });
+          }
+
+          // Action queue for offline sync
+          if (!db.objectStoreNames.contains('sync_queue')) {
+            db.createObjectStore('sync_queue', { keyPath: 'id' });
+          }
+        };
+      } catch (err) {
+        console.warn('Exception during IndexedDB initialization. Falling back to in-memory database.', err);
+        this.initMemoryStores();
+        resolve();
+      }
     });
+
+    return this.initPromise;
   }
 
   // --- Generic Store CRUD Helpers ---
-  private getStore(storeName: string, mode: IDBTransactionMode): IDBObjectStore {
-    if (!this.db) throw new Error('Database not initialized');
-    const transaction = this.db.transaction(storeName, mode);
-    return transaction.objectStore(storeName);
+  private async getStore(storeName: string, mode: IDBTransactionMode): Promise<IDBObjectStore> {
+    await this.init();
+    if (this.isFallback) {
+      throw new Error('Database is running in in-memory fallback mode');
+    }
+    if (!this.db) {
+      throw new Error('Database not initialized');
+    }
+    try {
+      const transaction = this.db.transaction(storeName, mode);
+      return transaction.objectStore(storeName);
+    } catch (err: any) {
+      if (
+        err.name === 'InvalidStateError' || 
+        err.message?.includes('closing') || 
+        err.message?.includes('closed')
+      ) {
+        console.warn('Database connection is in invalid or closing state. Attempting clean recovery...', err);
+        try {
+          this.db?.close();
+        } catch (e) {}
+        this.db = null;
+        this.initPromise = null;
+        
+        // Retry once with new connection
+        await this.init();
+        if (this.isFallback) {
+          throw new Error('Database is running in in-memory fallback mode');
+        }
+        if (!this.db) {
+          throw new Error('Database recovery failed: could not re-initialize');
+        }
+        const transaction = this.db.transaction(storeName, mode);
+        return transaction.objectStore(storeName);
+      }
+      throw err;
+    }
   }
 
-  public getAll<T>(storeName: string): Promise<T[]> {
+  public async getAll<T>(storeName: string): Promise<T[]> {
+    if (this.isFallback) {
+      const map = this.memoryStores[storeName];
+      return map ? (Array.from(map.values()) as T[]) : [];
+    }
+    const store = await this.getStore(storeName, 'readonly');
     return new Promise((resolve, reject) => {
-      try {
-        const store = this.getStore(storeName, 'readonly');
-        const request = store.getAll();
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
-      } catch (err) {
-        reject(err);
-      }
+      const request = store.getAll();
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
     });
   }
 
-  public put<T>(storeName: string, item: T): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        const store = this.getStore(storeName, 'readwrite');
-        const request = store.put(item);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      } catch (err) {
-        reject(err);
+  public async put<T>(storeName: string, item: T): Promise<void> {
+    if (this.isFallback) {
+      const map = this.memoryStores[storeName];
+      if (map) {
+        const id = (item as any).id || 'key_' + Math.random().toString(36).substring(2, 11);
+        map.set(id, item);
       }
+      return;
+    }
+    const store = await this.getStore(storeName, 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.put(item);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
   }
 
-  public delete(storeName: string, id: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        const store = this.getStore(storeName, 'readwrite');
-        const request = store.delete(id);
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      } catch (err) {
-        reject(err);
+  public async delete(storeName: string, id: string): Promise<void> {
+    if (this.isFallback) {
+      const map = this.memoryStores[storeName];
+      if (map) {
+        map.delete(id);
       }
+      return;
+    }
+    const store = await this.getStore(storeName, 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.delete(id);
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
   }
 
-  public clearStore(storeName: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      try {
-        const store = this.getStore(storeName, 'readwrite');
-        const request = store.clear();
-        request.onsuccess = () => resolve();
-        request.onerror = () => reject(request.error);
-      } catch (err) {
-        reject(err);
+  public async clearStore(storeName: string): Promise<void> {
+    if (this.isFallback) {
+      const map = this.memoryStores[storeName];
+      if (map) {
+        map.clear();
       }
+      return;
+    }
+    const store = await this.getStore(storeName, 'readwrite');
+    return new Promise((resolve, reject) => {
+      const request = store.clear();
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
   }
 

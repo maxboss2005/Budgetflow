@@ -501,7 +501,7 @@ export default function App() {
     setActiveTab('dashboard');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     localStorage.removeItem('budgetflow_token');
     setToken(null);
     setUser(null);
@@ -510,9 +510,13 @@ export default function App() {
     setGoals([]);
     setSubscriptions([]);
     setNotifications([]);
-    localDb.clearQueue();
-    localDb.cacheAll([], [], [], [], []);
     setSyncQueueLength(0);
+    try {
+      await localDb.clearQueue();
+      await localDb.cacheAll([], [], [], [], []);
+    } catch (err) {
+      console.warn('IndexedDB logout cleanup warning:', err);
+    }
   };
 
   const handleUpdateUser = async (updates: any) => {
@@ -778,6 +782,7 @@ export default function App() {
       case 'dashboard':
         return (
           <Dashboard
+            user={user}
             transactions={transactions}
             budgets={budgets}
             goals={goals}

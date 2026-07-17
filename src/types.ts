@@ -1,5 +1,5 @@
 /**
- * Shared Type Definitions for BudgetFlow FinTech SaaS
+ * Shared Type Definitions for DevFint Platform
  */
 
 export interface User {
@@ -15,6 +15,17 @@ export interface User {
   level?: number;
   achievements?: string[];
   role?: 'admin' | 'user';
+  
+  // Custom Personal & Organizational Account Extensions
+  accountType?: 'personal' | 'organization';
+  organizationName?: string;
+  organizationType?: string;
+  employeeCount?: string;
+  orgRegistrationNo?: string;
+  taxId?: string;
+  jobTitle?: string;
+  personalPlan?: 'basic' | 'premium' | 'family';
+  savingGoalPreference?: string;
 }
 
 export interface Category {
