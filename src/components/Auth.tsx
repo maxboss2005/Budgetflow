@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Mail, Lock, User, Wallet, ArrowRight, ShieldCheck, Landmark, Sparkles, Check, Eye, EyeOff, X, Building2, Users, Globe, Briefcase } from 'lucide-react';
 
 interface AuthProps {
@@ -28,6 +28,60 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+
+  // 6-digit OTP input states and refs
+  const [otpValues, setOtpValues] = useState<string[]>(Array(6).fill(''));
+  const otpRefs = [
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null),
+    useRef<HTMLInputElement>(null)
+  ];
+
+  const handleOtpChange = (index: number, val: string) => {
+    const cleanVal = val.replace(/\D/g, '').slice(-1);
+    const newOtp = [...otpValues];
+    newOtp[index] = cleanVal;
+    setOtpValues(newOtp);
+    setVerificationCode(newOtp.join(''));
+
+    if (cleanVal && index < 5) {
+      otpRefs[index + 1].current?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace') {
+      if (!otpValues[index] && index > 0) {
+        const newOtp = [...otpValues];
+        newOtp[index - 1] = '';
+        setOtpValues(newOtp);
+        setVerificationCode(newOtp.join(''));
+        otpRefs[index - 1].current?.focus();
+      } else if (otpValues[index]) {
+        const newOtp = [...otpValues];
+        newOtp[index] = '';
+        setOtpValues(newOtp);
+        setVerificationCode(newOtp.join(''));
+      }
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData('text').slice(0, 6).replace(/\D/g, '');
+    const newOtp = Array(6).fill('');
+    for (let i = 0; i < pastedData.length; i++) {
+      newOtp[i] = pastedData[i];
+    }
+    setOtpValues(newOtp);
+    setVerificationCode(newOtp.join(''));
+    
+    const focusIndex = Math.min(pastedData.length, 5);
+    otpRefs[focusIndex].current?.focus();
+  };
 
   // Registration Preferences (Personal Only)
   const [personalPlan, setPersonalPlan] = useState<'basic' | 'premium' | 'family'>('premium');
@@ -292,56 +346,54 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                     </div>
                   </div>
                 ) : simulatedCode ? (
-                  <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs font-mono mb-4">
+                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-slate-700 dark:text-slate-300 text-xs mb-4">
                     {smtpError ? (
                       <>
-                        <div className="font-bold flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider text-red-500">
-                          <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
-                          SMTP Login/Auth Failed
+                        <div className="font-bold flex items-center gap-1.5 mb-1.5 text-[11px] uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                          <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                          Offline Sandbox Mode
                         </div>
-                        <div className="text-slate-600 dark:text-slate-400 leading-normal">
-                          The server attempted to send a real email using your SMTP credentials, but authentication failed:
-                          <div className="mt-1.5 p-2 bg-red-500/5 border border-red-500/10 rounded-lg text-red-600 dark:text-red-400 font-mono text-[11px] break-words">
-                            {smtpError}
-                          </div>
-                          <p className="mt-2 text-slate-500 text-[11px]">
-                            Please check if your <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">SMTP_USER</code> and <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">SMTP_PASS</code> environment secrets are correct and updated.
-                          </p>
+                        <div className="leading-relaxed text-[11px] text-slate-600 dark:text-slate-400">
+                          We encountered a temporary constraint trying to dispatch your activation email. For your convenience, we have safely generated a secure temporary passcode so you can access your workspace instantly.
                         </div>
                       </>
                     ) : (
                       <>
-                        <div className="font-bold flex items-center gap-1.5 mb-1 text-[11px] uppercase tracking-wider text-amber-500">
+                        <div className="font-bold flex items-center gap-1.5 mb-1.5 text-[11px] uppercase tracking-wider text-amber-600 dark:text-amber-400">
                           <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                          SMTP Not Configured
+                          Demo Sandbox Mode
                         </div>
-                        <div className="text-slate-600 dark:text-slate-400 leading-normal">
-                          Configure <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">SMTP_HOST</code>, <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">SMTP_USER</code>, and <code className="bg-slate-100 dark:bg-slate-800 px-1 py-0.5 rounded">SMTP_PASS</code> in secrets to send real emails.
+                        <div className="leading-relaxed text-[11px] text-slate-600 dark:text-slate-400">
+                          Email delivery is running in simulated sandbox mode. A temporary passcode has been generated below to authorize your session immediately.
                         </div>
                       </>
                     )}
-                    <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-800/50 text-slate-600 dark:text-slate-400">
-                      Your simulated verification code is:
-                      <div className="mt-1.5 text-center">
-                        <span className="inline-block bg-slate-100 dark:bg-slate-950 px-4 py-1.5 rounded-lg border border-slate-200 dark:border-slate-800 text-lg font-bold text-blue-600 tracking-widest">{simulatedCode}</span>
-                      </div>
+                    <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-800/50 flex flex-col items-center">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Temporary Security Code</span>
+                      <span className="inline-block bg-slate-100 dark:bg-slate-950 px-5 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-lg font-mono font-bold text-blue-600 tracking-widest">{simulatedCode}</span>
                     </div>
                   </div>
                 ) : null}
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">6-Digit Verification Code</label>
-                  <div className="relative">
-                    <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                    <input
-                      type="text"
-                      required
-                      maxLength={6}
-                      value={verificationCode}
-                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
-                      placeholder="123456"
-                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-center tracking-widest font-mono placeholder:text-slate-400"
-                    />
+                  <label className="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2.5 text-center">
+                    6-Digit Verification Code
+                  </label>
+                  <div className="flex justify-between gap-2 max-w-[280px] mx-auto mb-4" onPaste={handleOtpPaste}>
+                    {otpValues.map((digit, idx) => (
+                      <input
+                        key={idx}
+                        ref={otpRefs[idx]}
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={1}
+                        value={digit}
+                        onChange={(e) => handleOtpChange(idx, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                        className="w-10 h-12 text-center text-lg font-bold font-mono rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      />
+                    ))}
                   </div>
                 </div>
 
@@ -361,6 +413,7 @@ export default function Auth({ onAuthSuccess }: AuthProps) {
                       setIsVerifying(false);
                       setSimulatedCode('');
                       setVerificationCode('');
+                      setOtpValues(Array(6).fill(''));
                       setMessage('');
                       setError('');
                     }}

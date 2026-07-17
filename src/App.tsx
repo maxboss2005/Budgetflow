@@ -318,11 +318,17 @@ export default function App() {
   // --- Theme Toggle Side-effects ---
   useEffect(() => {
     localStorage.setItem('budgetflow_theme', theme);
+    const root = document.documentElement;
+    root.classList.add('theme-transition');
     if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
+      root.classList.add('dark');
     } else {
-      document.documentElement.classList.remove('dark');
+      root.classList.remove('dark');
     }
+    const timer = setTimeout(() => {
+      root.classList.remove('theme-transition');
+    }, 500);
+    return () => clearTimeout(timer);
   }, [theme]);
 
   // --- Network Event Listeners ---
