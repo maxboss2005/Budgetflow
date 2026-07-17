@@ -29,6 +29,7 @@ import Insights from './components/Insights';
 import Reports from './components/Reports';
 import Settings from './components/Settings';
 import Auth from './components/Auth';
+import LoadingScreen from './components/LoadingScreen';
 import NotificationsDrawer from './components/NotificationsDrawer';
 import Rewards from './components/Rewards';
 import CoreFinance from './components/CoreFinance';
@@ -767,14 +768,7 @@ export default function App() {
 
   // --- Auth Guards Loader Render block ---
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center space-y-4">
-        <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center animate-bounce shadow-lg shadow-blue-500/25">
-          <Wallet className="w-6 h-6 text-white" />
-        </div>
-        <p className="text-xs font-bold font-mono tracking-widest uppercase text-slate-400 animate-pulse">Replicating Environment...</p>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   // Auth screen display if not logged in
